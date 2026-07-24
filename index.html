@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Pulse Chat</title>
+
+<!-- iOS "Add to Home Screen" support -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pulse">
+<meta name="theme-color" content="#F6F5F1">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=">
+
+<style>
+  :root{
+    --paper:#F6F5F1;
+    --paper-2:#EFEDE6;
+    --ink:#1B2430;
+    --ink-soft:#5B6472;
+    --line:#DFDCD2;
+    --pulse:#E63950;
+    --pulse-soft:#FBE3E6;
+    --teal:#1F8C7D;
+    --teal-soft:#E1F3EF;
+    --mono: 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--paper);
+    font-family:var(--sans);
+    color:var(--ink);
+    overflow:hidden;
+  }
+  #app{
+    display:flex; flex-direction:column;
+    height:100vh; height:100dvh;
+    max-width:560px; margin:0 auto;
+    background:var(--paper);
+    position:relative;
+  }
+
+  /* ---------- HEADER ---------- */
+  header{
+    flex:none;
+    padding:calc(env(safe-area-inset-top) + 14px) 20px 12px;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    position:relative;
+    z-index:2;
+  }
+  .htop{
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px;
+  }
+  .brand h1{
+    font-size:19px; font-weight:700; margin:0; letter-spacing:-0.01em;
+  }
+  .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--teal);
+    box-shadow:0 0 0 3px var(--teal-soft);
+    flex:none;
+  }
+  .bpm{
+    font-family:var(--mono);
+    font-size:12px; color:var(--ink-soft);
+    display:flex; align-items:center; gap:5px;
+  }
+  .bpm b{color:var(--pulse); font-weight:700;}
+
+  #ekg-wrap{
+    margin-top:10px; height:34px; width:100%; overflow:hidden;
+  }
+  #ekg-wrap svg{display:block; width:200%; height:100%;}
+  #ekg-path{
+    fill:none; stroke:var(--pulse); stroke-width:1.6;
+    stroke-linecap:round; stroke-linejoin:round;
+  }
+  #ekg-track{
+    animation: ekgmove 4.2s linear infinite;
+  }
+  @keyframes ekgmove{
+    from{transform:translateX(0);}
+    to{transform:translateX(-50%);}
+  }
+
+  /* ---------- MESSAGES ---------- */
+  #scroll{
+    flex:1; overflow-y:auto; padding:18px 16px 10px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .day-divider{
+    display:flex; align-items:center; gap:10px;
+    margin:18px 0 14px; color:var(--ink-soft); font-size:12px; font-family:var(--mono);
+  }
+  .day-divider::before, .day-divider::after{
+    content:''; flex:1; height:1px; background:var(--line);
+  }
+  .row{
+    display:flex; margin-bottom:8px; animation: rise .25s ease;
+  }
+  @keyframes rise{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  .row.mine{ justify-content:flex-end; }
+  .bubble{
+    max-width:78%;
+    padding:9px 13px;
+    border-radius:16px;
+    font-size:15.5px;
+    line-height:1.42;
+    position:relative;
+    word-wrap:break-word;
+    white-space:pre-wrap;
+  }
+  .row.mine .bubble{
+    background:var(--pulse);
+    color:#fff;
+    border-bottom-right-radius:5px;
+  }
+  .row:not(.mine) .bubble{
+    background:var(--paper-2);
+    color:var(--ink);
+    border-bottom-left-radius:5px;
+  }
+  .meta{
+    font-family:var(--mono);
+    font-size:10.5px;
+    opacity:.65;
+    margin-top:4px;
+    display:block;
+  }
+  .row.mine .meta{ color:#fff; text-align:right; }
+  .row:not(.mine) .meta{ color:var(--ink-soft); }
+
+  .bubble{ transition:opacity .15s; }
+  .bubble:active{ opacity:.75; }
+
+  #empty{
+    text-align:center; color:var(--ink-soft); font-size:14px;
+    margin-top:60px; line-height:1.6;
+  }
+  #empty .big{ font-size:32px; display:block; margin-bottom:10px; }
+
+  /* ---------- COMPOSER ---------- */
+  #composer{
+    flex:none;
+    display:flex; align-items:flex-end; gap:8px;
+    padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);
+    background:var(--paper);
+    border-top:1px solid var(--line);
+  }
+  #text{
+    flex:1;
+    resize:none;
+    border:1px solid var(--line);
+    background:#fff;
+    border-radius:20px;
+    padding:10px 15px;
+    font-size:15.5px;
+    font-family:var(--sans);
+    max-height:120px;
+    line-height:1.4;
+    color:var(--ink);
+    outline:none;
+  }
+  #text:focus{ border-color:var(--pulse); }
+  #send{
+    flex:none;
+    width:38px; height:38px;
+    border-radius:50%;
+    border:none;
+    background:var(--pulse);
+    color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  #send:active{ transform:scale(.92); }
+  #send svg{ width:17px; height:17px; }
+  #send:disabled{ background:var(--line); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="htop">
+      <div class="brand">
+        <span class="dot"></span>
+        <h1>Pulse Chat</h1>
+      </div>
+      <div class="bpm"><b id="bpm-count">72</b> bpm</div>
+    </div>
+    <div id="ekg-wrap">
+      <svg viewBox="0 0 400 34" preserveAspectRatio="none">
+        <g id="ekg-track">
+          <path id="ekg-path" d="M0,17 L40,17 L52,17 L58,4 L64,30 L70,17 L100,17 L140,17 L152,17 L158,4 L164,30 L170,17 L200,17 L240,17 L252,17 L258,4 L264,30 L270,17 L300,17 L340,17 L352,17 L358,4 L364,30 L370,17 L400,17" transform="translate(0,0)"/>
+          <path d="M0,17 L40,17 L52,17 L58,4 L64,30 L70,17 L100,17 L140,17 L152,17 L158,4 L164,30 L170,17 L200,17 L240,17 L252,17 L258,4 L264,30 L270,17 L300,17 L340,17 L352,17 L358,4 L364,30 L370,17 L400,17" transform="translate(400,0)" fill="none" stroke="var(--pulse)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+    </div>
+  </header>
+
+  <div id="scroll">
+    <div id="empty">
+      <span class="big">◟◝</span>
+      Пока тишина.<br>Напиши первую запись — она сохранится здесь навсегда.
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <div id="composer">
+    <textarea id="text" rows="1" placeholder="Сообщение…"></textarea>
+    <button id="send" aria-label="Отправить" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+const STORAGE_KEY = 'pulse-messages';
+const list = document.getElementById('list');
+const scrollBox = document.getElementById('scroll');
+const emptyState = document.getElementById('empty');
+const textEl = document.getElementById('text');
+const sendBtn = document.getElementById('send');
+const bpmCount = document.getElementById('bpm-count');
+
+let messages = [];
+
+async function loadMessages(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, false);
+    messages = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){
+    messages = [];
+  }
+  render();
+}
+
+async function saveMessages(){
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(messages), false);
+  }catch(e){
+    console.error('Storage error', e);
+  }
+}
+
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+}
+function fmtDay(ts){
+  const d = new Date(ts);
+  const today = new Date();
+  const yest = new Date(); yest.setDate(today.getDate()-1);
+  const sameDay = (a,b)=> a.toDateString() === b.toDateString();
+  if(sameDay(d, today)) return 'сегодня';
+  if(sameDay(d, yest)) return 'вчера';
+  return d.toLocaleDateString('ru-RU', {day:'numeric', month:'long'});
+}
+
+function render(){
+  list.innerHTML = '';
+  emptyState.style.display = messages.length ? 'none' : 'block';
+
+  let lastDay = null;
+  messages.forEach(m=>{
+    const day = fmtDay(m.ts);
+    if(day !== lastDay){
+      const div = document.createElement('div');
+      div.className = 'day-divider';
+      div.textContent = day;
+      list.appendChild(div);
+      lastDay = day;
+    }
+    const row = document.createElement('div');
+    row.className = 'row mine';
+    row.innerHTML = `<div class="bubble">${escapeHtml(m.text)}<span class="meta">${fmtTime(m.ts)}</span></div>`;
+    row.addEventListener('contextmenu', e=>{ e.preventDefault(); deleteMessage(m.id); });
+    let pressTimer;
+    row.addEventListener('touchstart', ()=>{ pressTimer = setTimeout(()=>deleteMessage(m.id), 600); });
+    row.addEventListener('touchend', ()=> clearTimeout(pressTimer));
+    list.appendChild(row);
+  });
+
+  requestAnimationFrame(()=>{ scrollBox.scrollTop = scrollBox.scrollHeight; });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function deleteMessage(id){
+  if(!confirm('Удалить запись?')) return;
+  messages = messages.filter(m=>m.id !== id);
+  await saveMessages();
+  render();
+}
+
+async function sendMessage(){
+  const val = textEl.value.trim();
+  if(!val) return;
+  messages.push({ id: Date.now()+'-'+Math.random().toString(36).slice(2,7), text: val, ts: Date.now() });
+  textEl.value = '';
+  autoGrow();
+  updateSendState();
+  await saveMessages();
+  render();
+  pulseBeat();
+}
+
+function pulseBeat(){
+  const n = 68 + Math.floor(Math.random()*10);
+  bpmCount.textContent = n;
+}
+
+function autoGrow(){
+  textEl.style.height = 'auto';
+  textEl.style.height = Math.min(textEl.scrollHeight, 120) + 'px';
+}
+
+function updateSendState(){
+  sendBtn.disabled = !textEl.value.trim();
+}
+
+textEl.addEventListener('input', ()=>{ autoGrow(); updateSendState(); });
+textEl.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+});
+sendBtn.addEventListener('click', sendMessage);
+
+loadMessages();
+</script>
+</body>
+</html>
