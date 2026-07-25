@@ -1,0 +1,2408 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Pulse Chat</title>
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pulse">
+<meta name="theme-color" content="#0B0C0F">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=">
+<style>
+  :root{
+    --bg:#0B0C0F;
+    --bg-2:#16181D;
+    --bg-3:#1E2027;
+    --text:#F4F4F2;
+    --text-soft:#9498A2;
+    --text-dim:#5C6070;
+    --line:#232631;
+    --pulse:#FF4459;
+    --pulse-soft:rgba(255,68,89,0.14);
+    --teal:#2FBFA6;
+    --teal-soft:rgba(47,191,166,0.15);
+    --white:#FFFFFF;
+    --verify:#5B7FFF;
+    --mono: 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg);
+    font-family:var(--sans);
+    color:var(--text);
+    overflow:hidden;
+    position:fixed;
+    inset:0;
+    overscroll-behavior:none;
+  }
+  #app{
+    display:flex; flex-direction:column;
+    height:100vh; height:100dvh;
+    height:calc(var(--app-height, 100vh));
+    max-width:560px; margin:0 auto;
+    background:var(--bg);
+    position:relative;
+  }
+  .screen{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    background:var(--bg);
+    opacity:0; pointer-events:none;
+    transform:translateX(0);
+    transition:opacity .3s ease;
+  }
+  .screen.active{ opacity:1; pointer-events:auto; }
+  .screen.no-fade{ transition:none; }
+  .badge{ width:17px; height:17px; flex:none; vertical-align:middle; }
+
+  /* ---------- SPLASH ---------- */
+  #screen-splash{ align-items:center; justify-content:center; gap:26px; }
+  .logo-wrap{ width:88px; height:88px; display:flex; align-items:center; justify-content:center; position:relative; }
+  .logo-ring{ position:absolute; inset:0; border-radius:50%; border:1px solid rgba(255,255,255,0.55); animation:ring 1.8s ease-out infinite; }
+  .logo-ring.d2{ animation-delay:.6s; } .logo-ring.d3{ animation-delay:1.2s; }
+  @keyframes ring{ 0%{ transform:scale(.55); opacity:0; } 15%{ opacity:.9; } 100%{ transform:scale(1.35); opacity:0; } }
+  .logo-core{ width:54px; height:54px; border-radius:50%; background:var(--white); display:flex; align-items:center; justify-content:center; z-index:1; }
+  .logo-core svg{ width:26px; height:26px; }
+  #screen-splash h1{ font-size:20px; font-weight:700; margin:0; letter-spacing:-0.01em; color:var(--white); }
+  #screen-splash .sub{ font-family:var(--mono); font-size:12px; color:var(--text-dim); letter-spacing:0.04em; }
+  .splash-ekg{ width:170px; height:26px; overflow:hidden; opacity:.9; }
+  .splash-ekg svg{ display:block; width:200%; height:100%; }
+  .splash-ekg path{ fill:none; stroke:var(--white); stroke-width:1.4; stroke-linecap:round; stroke-linejoin:round; }
+  .splash-ekg g{ animation: ekgmove 4.2s linear infinite; }
+  @keyframes ekgmove{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
+
+  /* ---------- AUTH ---------- */
+  .auth-body{ flex:1; display:flex; flex-direction:column; padding:calc(env(safe-area-inset-top) + 40px) 26px 26px; }
+  .auth-body h2{ font-size:22px; font-weight:700; margin:18px 0 6px; letter-spacing:-0.01em; color:var(--white); }
+  .auth-body p.desc{ font-size:14.5px; color:var(--text-soft); line-height:1.5; margin:0 0 28px; }
+  .auth-icon{ width:52px; height:52px; border-radius:16px; background:var(--pulse-soft); color:var(--pulse); display:flex; align-items:center; justify-content:center; }
+  .auth-icon svg{ width:24px; height:24px; }
+  .country-btn{ display:flex; align-items:center; justify-content:space-between; width:100%; border:1px solid var(--line); border-radius:14px; background:var(--bg-2); padding:13px 14px; margin-bottom:10px; color:var(--text); font-size:15px; cursor:pointer; }
+  .country-btn .left{ display:flex; align-items:center; gap:10px; }
+  .country-btn .flag{ font-size:19px; }
+  .country-btn svg{ width:16px; height:16px; color:var(--text-dim); }
+  .phone-row{ display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:14px; padding:4px 6px; background:var(--bg-2); }
+  .phone-row.err{ border-color:var(--pulse); animation:shake .3s; }
+  .cc{ font-family:var(--mono); font-size:16px; font-weight:700; color:var(--text); padding:10px 10px 10px 12px; border-right:1px solid var(--line); flex:none; }
+  #phone-input{ flex:1; border:none; outline:none; background:transparent; font-family:var(--mono); font-size:17px; letter-spacing:0.03em; padding:10px 8px; color:var(--text); }
+  #phone-input::placeholder{ color:var(--text-dim); }
+  .code-boxes{ display:flex; gap:10px; margin-top:4px; }
+  .code-box{ width:46px; height:56px; border:1px solid var(--line); border-radius:12px; background:var(--bg-2); text-align:center; font-family:var(--mono); font-size:22px; font-weight:700; outline:none; color:var(--text); }
+  .code-box:focus{ border-color:var(--pulse); }
+  .code-box.err{ animation:shake .3s; border-color:var(--pulse); }
+  @keyframes shake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-6px); } 75%{ transform:translateX(6px); } }
+  .tg-error{ display:flex; gap:10px; align-items:flex-start; background:var(--pulse-soft); border:1px solid rgba(255,68,89,0.35); border-radius:12px; padding:12px 14px; margin-top:16px; font-size:13.5px; color:#FFD3D8; line-height:1.5; opacity:0; transform:translateY(-4px); transition:opacity .2s ease, transform .2s ease; }
+  .tg-error.show{ opacity:1; transform:translateY(0); }
+  .tg-error svg{ width:17px; height:17px; flex:none; margin-top:1px; color:var(--pulse); }
+  .hint{ font-size:12.5px; color:var(--text-dim); margin-top:16px; }
+  .auth-btn{ margin-top:auto; width:100%; border:none; border-radius:14px; background:var(--pulse); color:var(--white); font-size:16px; font-weight:700; padding:15px; cursor:pointer; }
+  .auth-btn:disabled{ background:var(--bg-3); color:var(--text-dim); }
+  .auth-btn:active:not(:disabled){ transform:scale(.985); }
+  .back-link{ background:none; border:none; color:var(--text-soft); font-size:13.5px; padding:14px 0 0; text-align:center; cursor:pointer; }
+
+  /* ---------- COUNTRY PICKER ---------- */
+  .picker-head{ flex:none; padding:calc(env(safe-area-inset-top) + 16px) 20px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; }
+  .picker-head button{ background:none; border:none; color:var(--pulse); font-size:15px; padding:0; cursor:pointer; flex:none; }
+  .picker-head h3{ font-size:17px; font-weight:700; margin:0; color:var(--white); }
+  #country-search{ margin:14px 20px 6px; padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:var(--bg-2); color:var(--text); font-size:15px; outline:none; width:calc(100% - 40px); }
+  #country-search:focus{ border-color:var(--pulse); }
+  #country-list{ flex:1; overflow-y:auto; padding:6px 0 20px; -webkit-overflow-scrolling:touch; }
+  .country-item{ display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .country-item:active{ background:var(--bg-2); }
+  .country-item .flag{ font-size:20px; }
+  .country-item .name{ flex:1; font-size:15px; color:var(--text); }
+  .country-item .code{ font-family:var(--mono); font-size:14px; color:var(--text-soft); }
+  .country-item.pinned{ background:var(--pulse-soft); }
+
+  /* ---------- SHARED TOP HEADER (chatlist / settings) ---------- */
+  .top-header{ flex:none; padding:calc(env(safe-area-inset-top) + 14px) 20px 12px; display:flex; align-items:center; justify-content:space-between; }
+  .top-header h1{ font-size:30px; font-weight:800; margin:0; letter-spacing:-0.02em; color:var(--white); }
+  .top-header .icon-btn{ background:var(--bg-2); border:none; color:var(--text-soft); width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .icon-btn-mini{ background:var(--bg-2); border:none; color:var(--text-soft); width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:none; cursor:pointer; }
+  .icon-btn-mini svg{ width:17px; height:17px; }
+  .top-header .icon-btn svg{ width:16px; height:16px; }
+
+  /* ---------- CHAT LIST ---------- */
+  .chat-search-wrap{ flex:none; max-height:0; opacity:0; overflow:hidden; padding:0 20px; transition:max-height .32s cubic-bezier(.32,.72,0,1), opacity .2s ease, padding .32s cubic-bezier(.32,.72,0,1); }
+  .chat-search-wrap.show{ max-height:120px; opacity:1; padding:0 20px 10px; }
+  .chat-search-row{ display:flex; align-items:center; gap:10px; }
+  .chat-search{ flex:1; min-width:0; display:flex; align-items:center; gap:9px; background:var(--bg-2); border-radius:14px; padding:11px 14px; }
+  .chat-search svg{ width:18px; height:18px; color:var(--text-dim); flex:none; }
+  .chat-search input{ flex:1; min-width:0; background:none; border:none; outline:none; color:var(--text); font-size:15px; font-family:var(--sans); }
+  .chat-search input::placeholder{ color:var(--text-dim); }
+  .chat-search-close{ flex:none; width:34px; height:34px; border-radius:50%; border:none; background:var(--bg-2); color:var(--text-soft); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .chat-search-close svg{ width:16px; height:16px; }
+  .search-tabs{ display:flex; gap:6px; margin-top:10px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .search-tabs::-webkit-scrollbar{ display:none; }
+  .search-tab{ flex:none; background:var(--bg-2); border:none; color:var(--text-soft); font-size:13.5px; padding:8px 14px; border-radius:20px; cursor:pointer; white-space:nowrap; }
+  .search-tab.active{ background:var(--pulse); color:var(--white); font-weight:600; }
+  #search-empty{ display:none; flex-direction:column; align-items:center; text-align:center; padding:90px 34px 30px; }
+  #search-empty.show{ display:flex; }
+  #search-empty svg{ width:108px; height:108px; margin-bottom:22px; }
+  #search-empty h3{ margin:0 0 8px; font-size:17px; font-weight:700; color:var(--text-soft); }
+  #search-empty p{ margin:0; font-size:14px; color:var(--text-dim); line-height:1.55; }
+  #search-empty b{ color:var(--text-soft); font-weight:600; }
+  #chatlist-scroll{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .conv-row{ display:flex; align-items:center; gap:12px; padding:12px 20px; cursor:pointer; }
+  .conv-row:active{ background:var(--bg-2); }
+  .conv-avatar{ width:52px; height:52px; border-radius:50%; background:var(--pulse); display:flex; align-items:center; justify-content:center; flex:none; }
+  .conv-avatar svg{ width:24px; height:24px; color:var(--white); }
+  .conv-main{ flex:1; min-width:0; border-bottom:1px solid var(--line); padding-bottom:12px; }
+  .conv-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:3px; }
+  .conv-name{ display:flex; align-items:center; gap:5px; font-size:16px; font-weight:700; color:var(--white); }
+  .conv-time{ font-size:12.5px; color:var(--text-dim); font-family:var(--mono); }
+  .conv-sub{ font-size:14px; color:var(--text-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #chatlist-empty-space{ padding:60px 30px; text-align:center; color:var(--text-dim); font-size:13.5px; line-height:1.6; }
+
+  /* ---------- SETTINGS ---------- */
+  #settings-scroll{ flex:1; overflow-y:auto; padding:4px 20px 20px; -webkit-overflow-scrolling:touch; }
+  .profile-card{ display:flex; flex-direction:column; align-items:center; padding:20px 0 26px; }
+  .profile-avatar{ width:96px; height:96px; border-radius:50%; background:linear-gradient(160deg, var(--pulse), #B8283A); display:flex; align-items:center; justify-content:center; margin-bottom:14px; overflow:hidden; flex:none; }
+  .profile-avatar img{ width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+  .profile-avatar svg{ width:42px; height:42px; color:var(--white); }
+  .profile-name{ display:flex; align-items:center; gap:6px; font-size:20px; font-weight:700; color:var(--white); }
+  .profile-phone{ font-family:var(--mono); font-size:14px; color:var(--text-soft); margin-top:6px; }
+  .settings-group{ background:var(--bg-2); border-radius:14px; overflow:hidden; margin-bottom:18px; }
+  .settings-row{ display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+  .settings-row:last-child{ border-bottom:none; }
+  .settings-row .ic{ width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .settings-row .ic-avatar{ width:30px; height:30px; border-radius:50%; overflow:hidden; flex:none; display:flex; align-items:center; justify-content:center; background:linear-gradient(160deg, var(--pulse), #B8283A); color:var(--white); }
+  .settings-row .ic-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .settings-row.toast-row{ cursor:pointer; }
+  .settings-row .ic svg{ width:16px; height:16px; color:var(--white); }
+  .settings-row .ic-avatar svg{ width:16px; height:16px; color:var(--white); }
+  .settings-row .label{ flex:1; font-size:15px; color:var(--text); }
+  .settings-row .val{ font-size:14px; color:var(--text-dim); }
+  #logout-row{ color:var(--pulse); cursor:pointer; }
+  #logout-row .label{ color:var(--pulse); font-weight:600; }
+  .settings-row.link{ cursor:pointer; }
+  .settings-row.link .chev{ width:16px; height:16px; color:var(--text-dim); flex:none; }
+
+  .radio-row{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .radio-row:last-child{ border-bottom:none; }
+  .radio-row .rlabel{ font-size:15px; color:var(--text); }
+  .radio-row .dot-check{ width:20px; height:20px; border-radius:50%; border:1.5px solid var(--text-dim); display:flex; align-items:center; justify-content:center; flex:none; }
+  .radio-row.selected .dot-check{ border-color:var(--verify); background:var(--verify); }
+  .radio-row.selected .dot-check svg{ width:12px; height:12px; color:var(--white); }
+  .privacy-hint{ font-size:12.5px; color:var(--text-dim); padding:10px 20px 4px; line-height:1.5; }
+
+  .devices-illust{ display:flex; justify-content:center; padding:24px 0 10px; }
+  .devices-illust svg{ width:150px; height:auto; }
+  .devices-copy{ text-align:center; font-size:14.5px; color:var(--text-soft); line-height:1.55; padding:0 30px; }
+  .devices-copy a{ color:var(--pulse); text-decoration:none; }
+  .connect-btn{ display:flex; align-items:center; justify-content:center; gap:10px; margin:20px auto 8px; padding:15px 28px; width:fit-content; max-width:calc(100% - 40px); border-radius:14px; border:none; background:var(--pulse); color:var(--white); font-size:16px; font-weight:700; cursor:pointer; }
+  .connect-btn svg{ width:20px; height:20px; }
+  .device-card{ display:flex; align-items:center; gap:14px; background:var(--bg-2); border-radius:14px; padding:14px 16px; margin:0 20px; }
+  .device-card .dic{ width:44px; height:44px; border-radius:12px; background:var(--pulse); display:flex; align-items:center; justify-content:center; flex:none; }
+  .device-card .dic svg{ width:20px; height:20px; color:var(--white); }
+  .device-card .dtext .dname{ font-size:15.5px; font-weight:700; color:var(--white); }
+  .device-card .dtext .dmeta{ font-size:13px; color:var(--text-soft); margin-top:2px; }
+  .device-card .dtext .dloc{ font-size:13px; color:var(--text-dim); margin-top:2px; }
+  .device-card .dtext .dloc b{ color:var(--teal); font-weight:600; }
+
+  /* ---------- MY PROFILE ---------- */
+  #myprofile-scroll{ flex:1; overflow-y:auto; padding:4px 20px 30px; -webkit-overflow-scrolling:touch; }
+  .avatar-wrap{ position:relative; width:96px; height:96px; margin-bottom:14px; cursor:pointer; }
+  .avatar-wrap .profile-avatar{ width:96px; height:96px; margin-bottom:0; overflow:hidden; }
+  .avatar-wrap .profile-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .avatar-add-badge{ position:absolute; right:0; bottom:0; width:30px; height:30px; border-radius:50%; background:var(--pulse); border:3px solid var(--bg); display:flex; align-items:center; justify-content:center; }
+  .avatar-add-badge svg{ width:14px; height:14px; color:var(--white); }
+  .lp-hint{ padding:14px 4px 0; color:var(--text-dim); font-size:12.5px; line-height:1.55; text-align:center; }
+  [data-longpress]{ cursor:pointer; user-select:none; -webkit-user-select:none; }
+  .nick-row[data-longpress]{ padding:14px 16px; }
+  .mp-field{ display:flex; align-items:center; justify-content:center; gap:8px; }
+  .mp-pencil{ flex:none; width:26px; height:26px; border-radius:50%; border:none; background:var(--bg-2); color:var(--pulse); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .mp-pencil svg{ width:13px; height:13px; }
+  .mp-pencil:active{ opacity:.7; }
+  #myprofile-edit-toggle{ background:var(--bg-2); border:none; color:var(--pulse); font-size:14px; font-weight:600; padding:8px 14px; border-radius:20px; cursor:pointer; }
+  .mp-info-card{ background:var(--bg-2); border-radius:16px; overflow:hidden; margin:18px 0 4px; }
+  .mp-info-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line); }
+  .mp-info-row:last-child{ border-bottom:none; }
+  .mp-info-text{ min-width:0; flex:1; }
+  .mp-info-label{ font-size:13px; color:var(--text-soft); margin-bottom:2px; }
+  .mp-info-value{ font-size:16.5px; color:var(--text); font-family:var(--sans); word-break:break-word; }
+  .mp-info-value.link{ color:var(--verify); }
+
+  /* ---------- MY PROFILE EDIT SHEET ---------- */
+  .text-btn{ background:var(--bg-2); border:none; color:var(--pulse); font-size:15px; padding:9px 16px; border-radius:20px; cursor:pointer; }
+  .text-btn.strong{ font-weight:700; }
+  #myedit-scroll{ flex:1; overflow-y:auto; padding:4px 20px 30px; -webkit-overflow-scrolling:touch; }
+  .link-btn{ background:none; border:none; color:var(--verify); font-size:16px; cursor:pointer; margin:14px 0 4px; }
+  .mp-hint-text{ padding:8px 6px 4px; color:var(--text-dim); font-size:12.5px; line-height:1.5; }
+  .mp-input-row{ padding:2px 16px; }
+  .mp-input-row input{ width:100%; border:none; background:none; outline:none; color:var(--text); font-size:16.5px; padding:12px 0; font-family:var(--sans); }
+  .mp-input-row input::placeholder{ color:var(--text-dim); }
+  .mp-info-card .mp-input-row + .mp-input-row{ border-top:1px solid var(--line); }
+  .mp-link-row{ width:100%; background:none; border:none; display:flex; align-items:center; gap:12px; padding:13px 16px; cursor:pointer; text-align:left; color:var(--text); }
+  .mp-row-icon{ width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .mp-row-icon svg{ width:15px; height:15px; color:var(--white); }
+  .mp-row-label{ font-size:15.5px; color:var(--text); }
+  .mp-row-val{ font-size:14.5px; color:var(--text-dim); flex:none; }
+  .mp-row-dot{ width:16px; height:16px; border-radius:50%; background:var(--pulse); flex:none; }
+  .mp-link-row .chev{ width:15px; height:15px; color:var(--text-dim); flex:none; }
+  .mp-link-row:active{ background:rgba(255,255,255,.04); }
+  .mp-center-row{ justify-content:center; color:var(--verify); font-size:15.5px; font-weight:600; }
+  .mp-center-row.danger{ color:var(--pulse); }
+
+  /* ---------- LONG-PRESS CONTEXT OVERLAY ---------- */
+  #longpress-overlay{ position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center; flex-direction:column; }
+  #longpress-overlay.show{ display:flex; }
+  #longpress-backdrop{ position:absolute; inset:0; background:rgba(6,7,10,0.55); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); opacity:0; transition:opacity .18s ease; }
+  #longpress-overlay.show #longpress-backdrop{ opacity:1; }
+  #longpress-card{ position:relative; z-index:1; background:var(--bg-3); border-radius:16px; padding:14px 18px; min-width:220px; max-width:82vw; box-shadow:0 10px 30px rgba(0,0,0,.4); transform:scale(.9); opacity:0; transition:transform .18s cubic-bezier(.32,.72,0,1), opacity .18s ease; }
+  #longpress-overlay.show #longpress-card{ transform:scale(1); opacity:1; }
+  .lp-label{ font-size:13px; color:var(--text-soft); margin-bottom:4px; }
+  .lp-value{ font-size:19px; font-weight:600; color:var(--verify); word-break:break-word; white-space:pre-wrap; }
+  #longpress-menu{ position:relative; z-index:1; margin-top:10px; background:var(--bg-3); border-radius:14px; overflow:hidden; min-width:220px; max-width:82vw; transform:scale(.9); opacity:0; transition:transform .18s cubic-bezier(.32,.72,0,1) .02s, opacity .18s ease .02s; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+  #longpress-overlay.show #longpress-menu{ transform:scale(1); opacity:1; }
+  #longpress-menu button{ width:100%; display:flex; align-items:center; gap:12px; padding:14px 16px; background:none; border:none; border-bottom:1px solid rgba(255,255,255,.06); color:var(--text); font-size:15.5px; cursor:pointer; text-align:left; }
+  #longpress-menu button:last-child{ border-bottom:none; }
+  #longpress-menu button svg{ width:18px; height:18px; color:var(--text-soft); flex:none; }
+  #longpress-menu button:active{ background:rgba(255,255,255,.05); }
+
+  /* ---------- TAB BAR ---------- */
+  .tabbar-wrap{ flex:none; display:flex; align-items:center; background:var(--bg); padding-bottom:env(safe-area-inset-bottom); }
+  .tabbar{ position:relative; flex:1; min-width:0; display:flex; border-top:1px solid var(--line); background:var(--bg); transition:margin .24s cubic-bezier(.32,.72,0,1), border-radius .24s cubic-bezier(.32,.72,0,1), background-color .24s ease, box-shadow .24s ease, border-color .2s ease; }
+  .tab-btn{ flex:1; background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 0 8px; color:var(--text-dim); cursor:pointer; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+  .tab-btn svg{ width:23px; height:23px; }
+  .tab-btn span{ font-size:10.5px; }
+  .tab-btn.active{ color:var(--pulse); }
+  .toast{ position:absolute; bottom:90px; left:50%; transform:translateX(-50%) translateY(8px); background:var(--bg-3); color:var(--text); font-size:13px; padding:9px 16px; border-radius:20px; opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; white-space:nowrap; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* long-press on a tab bar item: the bar floats into a rounded pill and a
+     search bubble grows in beside it, like the iOS peek gesture */
+  .tab-btn{ position:relative; }
+  .tab-btn.pressed-peek::before{
+    content:''; position:absolute; inset:2px 8px; border-radius:16px;
+    background:rgba(255,255,255,.09);
+  }
+  .tabbar.peeking{
+    margin:8px 0 8px 14px;
+    border-radius:26px;
+    border-top-color:transparent;
+    background:rgba(32,32,38,.9);
+    -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px);
+    box-shadow:0 14px 32px rgba(0,0,0,.5);
+  }
+  .tabbar.peeking .tab-btn:not(.pressed-peek){ opacity:.4; transition:opacity .18s ease; }
+  .tab-search-bubble{
+    flex:none; width:0; height:44px; border-radius:50%;
+    background:var(--bg-3); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    box-shadow:0 10px 26px rgba(0,0,0,.45);
+    opacity:0; transform:scale(.4) translateX(0);
+    margin:8px 0 8px 0;
+    transition:width .24s cubic-bezier(.32,.72,0,1), margin .24s cubic-bezier(.32,.72,0,1), opacity .2s ease, transform .2s cubic-bezier(.32,.72,0,1), background .15s ease;
+    pointer-events:none; z-index:40;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+  }
+  .tab-search-bubble.show{ width:44px; margin:8px 14px 8px 12px; opacity:1; transform:scale(1) translateX(var(--lp-drag, 0px)); }
+  .tab-search-bubble.hit{ background:var(--pulse); transform:scale(1.14) translateX(var(--lp-drag, 0px)); box-shadow:0 0 0 6px rgba(230,57,70,.18), 0 10px 26px rgba(0,0,0,.5); }
+  .tab-search-bubble svg{ width:21px; height:21px; color:var(--text); flex:none; }
+
+  /* ---------- CONTACT PROFILE ---------- */
+  #profile-scroll{ flex:1; overflow-y:auto; padding:4px 20px 30px; -webkit-overflow-scrolling:touch; }
+  .profile-status{ font-size:14px; color:var(--teal); text-align:center; margin-top:2px; }
+  .profile-status.offline{ color:var(--text-dim); }
+  .verify-line{ display:flex; align-items:flex-start; gap:10px; background:var(--bg-2); border-radius:12px; padding:12px 14px; margin:22px 0; }
+  .verify-line svg{ width:17px; height:17px; flex:none; margin-top:1px; color:var(--verify); }
+  .verify-line span{ font-size:13.5px; color:var(--text-soft); line-height:1.5; }
+  .verify-line b{ color:var(--text); }
+  .nick-row{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; }
+  .nick-row .label{ font-size:12.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.03em; }
+  .nick-row .val{ font-size:15px; color:var(--text); margin-top:3px; }
+  .nick-row button{ background:none; border:none; color:var(--pulse); font-size:14px; cursor:pointer; }
+  .profile-actions{ display:flex; gap:10px; margin:18px 0; }
+  .profile-actions button{ flex:1; border:none; border-radius:12px; padding:13px; font-size:14.5px; font-weight:600; cursor:pointer; }
+  .act-add{ background:var(--teal-soft); color:var(--teal); }
+  .act-add.added{ background:var(--bg-2); color:var(--text-soft); }
+  .act-block{ background:var(--pulse-soft); color:var(--pulse); }
+  .act-block.blocked{ background:var(--bg-2); color:var(--text-soft); }
+  #block-banner{ display:none; align-items:center; justify-content:center; gap:8px; padding:10px 16px; background:var(--bg-2); color:var(--text-dim); font-size:13px; text-align:center; }
+  #block-banner button{ background:none; border:none; color:var(--pulse); font-size:13px; font-weight:600; cursor:pointer; }
+  #composer.disabled{ opacity:.45; pointer-events:none; }
+
+  /* ---------- CHAT THREAD ---------- */
+  #thread-header{ flex:none; padding:calc(env(safe-area-inset-top) + 14px) 16px 12px; background:var(--bg); border-bottom:1px solid var(--line); position:relative; z-index:2; }
+  .thread-top{ display:flex; align-items:center; gap:10px; }
+  #thread-back{ background:none; border:none; color:var(--pulse); padding:2px; flex:none; cursor:pointer; }
+  #thread-back svg{ width:22px; height:22px; }
+  .thread-avatar{ width:34px; height:34px; border-radius:50%; background:var(--pulse); display:flex; align-items:center; justify-content:center; flex:none; }
+  .thread-avatar svg{ width:16px; height:16px; color:var(--white); }
+  .thread-title-wrap{ flex:1; min-width:0; }
+  .thread-name{ display:flex; align-items:center; gap:5px; font-size:16px; font-weight:700; color:var(--white); }
+  .thread-status{ font-size:12px; color:var(--teal); }
+  .bpm{ font-family:var(--mono); font-size:12px; color:var(--text-soft); display:flex; align-items:center; gap:5px; flex:none; }
+  .bpm b{ color:var(--pulse); font-weight:700; }
+  #ekg-wrap{ margin-top:10px; height:30px; width:100%; overflow:hidden; }
+  #ekg-wrap svg{ display:block; width:200%; height:100%; }
+  #ekg-track{ animation: ekgmove 4.2s linear infinite; }
+
+  #scroll{ flex:1; overflow-y:auto; padding:18px 16px 10px; -webkit-overflow-scrolling:touch; }
+  .day-divider{ display:flex; align-items:center; gap:10px; margin:18px 0 14px; color:var(--text-dim); font-size:12px; font-family:var(--mono); }
+  .day-divider::before, .day-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
+  .row{ display:flex; margin-bottom:8px; animation: rise .25s ease; }
+  @keyframes rise{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  .row.mine{ justify-content:flex-end; }
+  .bubble{ max-width:78%; padding:9px 13px; border-radius:16px; font-size:15.5px; line-height:1.42; position:relative; word-wrap:break-word; white-space:pre-wrap; }
+  .row.mine .bubble{ background:var(--pulse); color:var(--white); border-bottom-right-radius:5px; }
+  .row:not(.mine) .bubble{ background:var(--bg-2); color:var(--text); border-bottom-left-radius:5px; }
+  .meta{ font-family:var(--mono); font-size:10.5px; opacity:.7; margin-top:4px; display:block; }
+  .row.mine .meta{ color:var(--white); text-align:right; }
+  .row:not(.mine) .meta{ color:var(--text-dim); }
+  .bubble:active{ opacity:.75; }
+  .reaction-badge{ position:absolute; bottom:-11px; right:8px; background:var(--bg-3); border:2px solid var(--bg); border-radius:12px; font-size:12px; padding:1px 6px; }
+  .row.mine .reaction-badge{ right:auto; left:8px; }
+  .bubble .quote{ display:block; border-left:2px solid rgba(255,255,255,0.5); padding:2px 0 4px 8px; margin-bottom:4px; font-size:13px; opacity:.85; }
+  .row:not(.mine) .bubble .quote{ border-left-color:var(--pulse); }
+  .bubble .edited-tag{ font-size:10px; opacity:.65; margin-left:4px; }
+  .pin-strip{ flex:none; display:flex; align-items:center; gap:8px; padding:8px 16px; background:var(--bg-2); border-bottom:1px solid var(--line); font-size:13px; color:var(--text-soft); cursor:pointer; }
+  .pin-strip svg{ width:15px; height:15px; color:var(--pulse); flex:none; }
+  .pin-strip .txt{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* ---------- MESSAGE CONTEXT MENU ---------- */
+  #msg-ctx-backdrop{ position:fixed; inset:0; background:rgba(6,7,9,0.6); backdrop-filter:blur(2px); z-index:80; opacity:0; pointer-events:none; transition:opacity .18s ease; }
+  #msg-ctx-backdrop.show{ opacity:1; pointer-events:auto; }
+  #msg-ctx-clone{ position:fixed; z-index:82; max-width:78%; padding:9px 13px; border-radius:16px; font-size:15.5px; line-height:1.42; word-wrap:break-word; white-space:pre-wrap; opacity:0; pointer-events:none; transition:opacity .15s ease; }
+  #msg-ctx-clone.show{ opacity:1; }
+  #msg-ctx-clone.mine{ background:var(--pulse); color:var(--white); border-bottom-right-radius:5px; }
+  #msg-ctx-clone.theirs{ background:var(--bg-2); color:var(--text); border-bottom-left-radius:5px; }
+  #msg-ctx-reactions{ position:fixed; z-index:83; display:flex; align-items:center; gap:4px; background:var(--bg-3); border-radius:26px; padding:6px 8px; opacity:0; transform:translateY(6px); pointer-events:none; transition:opacity .18s ease, transform .18s ease; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+  #msg-ctx-reactions.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
+  #msg-ctx-reactions button{ background:none; border:none; font-size:22px; padding:5px; line-height:1; cursor:pointer; border-radius:50%; }
+  #msg-ctx-reactions button:active{ background:rgba(255,255,255,0.12); }
+  #msg-ctx-menu{ position:fixed; z-index:83; width:230px; background:var(--bg-3); border-radius:16px; overflow:hidden; opacity:0; transform:translateY(6px); pointer-events:none; transition:opacity .18s ease, transform .18s ease; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+  #msg-ctx-menu.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
+  .ctx-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; font-size:15px; color:var(--text); cursor:pointer; border-bottom:1px solid var(--line); }
+  .ctx-item:last-child{ border-bottom:none; }
+  .ctx-item svg{ width:18px; height:18px; color:var(--text-soft); }
+  .ctx-item.danger{ color:var(--pulse); }
+  .ctx-item.danger svg{ color:var(--pulse); }
+  .ctx-item:active{ background:rgba(255,255,255,0.06); }
+
+  #composer.replying{ padding-top:0; }
+  .reply-bar{ display:none; align-items:center; gap:10px; padding:8px 12px 0; }
+  .reply-bar.show{ display:flex; }
+  .reply-bar .stripe{ width:3px; align-self:stretch; background:var(--pulse); border-radius:2px; }
+  .reply-bar .info{ flex:1; min-width:0; }
+  .reply-bar .who{ font-size:12.5px; font-weight:700; color:var(--pulse); }
+  .reply-bar .snippet{ font-size:13px; color:var(--text-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .reply-bar button{ background:none; border:none; color:var(--text-dim); padding:4px; cursor:pointer; }
+  .reply-bar button svg{ width:16px; height:16px; }
+
+  #select-bar{ display:none; align-items:center; justify-content:space-between; flex:none; padding:10px 16px calc(env(safe-area-inset-bottom) + 10px); background:var(--bg-2); border-top:1px solid var(--line); }
+  #select-bar.show{ display:flex; }
+  #select-bar .sb-count{ font-size:14px; color:var(--text-soft); }
+  #select-bar button{ background:none; border:none; color:var(--pulse); font-size:14px; font-weight:600; cursor:pointer; padding:6px 10px; }
+  .row.select-mode{ align-items:center; gap:8px; }
+  .row .sel-check{ display:none; width:20px; height:20px; border-radius:50%; border:1.5px solid var(--text-dim); flex:none; align-items:center; justify-content:center; }
+  .row.select-mode .sel-check{ display:flex; }
+  .row.select-mode.picked .sel-check{ background:var(--pulse); border-color:var(--pulse); }
+  .row.select-mode.picked .sel-check svg{ width:12px; height:12px; color:var(--white); }
+  .row.mine.select-mode{ flex-direction:row-reverse; }
+
+  #composer{ flex:none; display:flex; align-items:flex-end; gap:8px; padding:10px 12px calc(env(safe-area-inset-bottom) + 10px); background:var(--bg); border-top:1px solid var(--line); }
+  #text{ flex:1; resize:none; border:1px solid var(--line); background:var(--bg-2); border-radius:20px; padding:10px 15px; font-size:15.5px; font-family:var(--sans); max-height:120px; line-height:1.4; color:var(--text); outline:none; }
+  #text::placeholder{ color:var(--text-dim); }
+  #text:focus{ border-color:var(--pulse); }
+  #send{ flex:none; width:38px; height:38px; border-radius:50%; border:none; background:var(--pulse); color:var(--white); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #send:active{ transform:scale(.92); }
+  #send svg{ width:17px; height:17px; }
+  #send:disabled{ background:var(--bg-3); color:var(--text-dim); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SPLASH -->
+  <div id="screen-splash" class="screen active">
+    <div class="logo-wrap">
+      <span class="logo-ring"></span><span class="logo-ring d2"></span><span class="logo-ring d3"></span>
+      <div class="logo-core"><svg viewBox="0 0 24 24" fill="none" stroke="#0B0C0F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></div>
+    </div>
+    <h1>Pulse Chat</h1>
+    <div class="splash-ekg"><svg viewBox="0 0 400 26" preserveAspectRatio="none"><g>
+      <path d="M0,13 L40,13 L52,13 L58,3 L64,23 L70,13 L100,13 L140,13 L152,13 L158,3 L164,23 L170,13 L200,13 L240,13 L252,13 L258,3 L264,23 L270,13 L300,13 L340,13 L352,13 L358,3 L364,23 L370,13 L400,13" transform="translate(0,0)"/>
+      <path d="M0,13 L40,13 L52,13 L58,3 L64,23 L70,13 L100,13 L140,13 L152,13 L158,3 L164,23 L170,13 L200,13 L240,13 L252,13 L258,3 L264,23 L270,13 L300,13 L340,13 L352,13 L358,3 L364,23 L370,13 L400,13" transform="translate(400,0)"/>
+    </g></svg></div>
+    <div class="sub">ЗАПУСК…</div>
+  </div>
+
+  <!-- PHONE -->
+  <div id="screen-phone" class="screen">
+    <div class="auth-body">
+      <button id="phone-flow-cancel" style="display:none; align-self:flex-start; background:none; border:none; color:var(--pulse); font-size:15px; padding:0 0 14px; cursor:pointer;">‹ Отмена</button>
+      <div class="auth-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.79.65 2.65a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.43-1.43a2 2 0 0 1 2.11-.45c.86.31 1.75.53 2.65.65A2 2 0 0 1 22 16.92z"/></svg></div>
+      <h2>Твой номер</h2>
+      <p class="desc">Выбери страну и введи номер телефона, чтобы войти в Pulse Chat.</p>
+      <button class="country-btn" id="country-btn">
+        <span class="left"><span class="flag" id="country-flag">💠</span><span id="country-name">Pulse ID</span></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="phone-row" id="phone-row">
+        <span class="cc" id="cc-display">+888</span>
+        <input id="phone-input" type="tel" inputmode="numeric" placeholder="0000 0000" maxlength="9">
+      </div>
+      <div class="tg-error" id="phone-err">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Некорректный номер телефона. Проверьте номер и код страны и попробуйте снова.</span>
+      </div>
+      <div class="hint">Вход только по личному номеру.</div>
+      <button class="auth-btn" id="phone-continue" disabled>Продолжить</button>
+    </div>
+  </div>
+
+  <!-- COUNTRY -->
+  <div id="screen-country" class="screen">
+    <div class="picker-head"><button id="country-cancel">Отмена</button><h3>Страна</h3></div>
+    <input id="country-search" type="text" placeholder="Поиск">
+    <div id="country-list"></div>
+  </div>
+
+  <!-- CODE -->
+  <div id="screen-code" class="screen">
+    <div class="auth-body">
+      <div class="auth-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <h2>Код подтверждения</h2>
+      <p class="desc">Отправили код на <b id="code-phone-shown" style="color:var(--text-soft)"></b></p>
+      <div class="code-boxes" id="code-boxes">
+        <input class="code-box" type="tel" inputmode="numeric" maxlength="1">
+        <input class="code-box" type="tel" inputmode="numeric" maxlength="1">
+        <input class="code-box" type="tel" inputmode="numeric" maxlength="1">
+        <input class="code-box" type="tel" inputmode="numeric" maxlength="1">
+        <input class="code-box" type="tel" inputmode="numeric" maxlength="1">
+      </div>
+      <div class="tg-error" id="code-err">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Неверный код. Попробуйте ещё раз.</span>
+      </div>
+      <button class="back-link" id="code-back">Изменить номер</button>
+    </div>
+  </div>
+
+  <!-- CHAT LIST -->
+  <div id="screen-chatlist" class="screen">
+    <div class="top-header">
+      <h1>Чаты</h1>
+      <button class="icon-btn" id="chatlist-noop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+    </div>
+    <div class="chat-search-wrap" id="chat-search-wrap">
+      <div class="chat-search-row">
+        <div class="chat-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="chat-search-input" placeholder="Поиск" autocomplete="off">
+        </div>
+        <button class="chat-search-close" id="chat-search-close" aria-label="Закрыть поиск"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="search-tabs">
+        <button class="search-tab active" data-search-tab="Чаты">Чаты</button>
+        <button class="search-tab" data-search-tab="Каналы">Каналы</button>
+        <button class="search-tab" data-search-tab="Приложения">Приложения</button>
+        <button class="search-tab" data-search-tab="Посты">Посты</button>
+      </div>
+    </div>
+    <div id="search-empty">
+      <svg viewBox="0 0 100 100" fill="none">
+        <circle cx="50" cy="54" r="30" fill="var(--bg-3)"/>
+        <circle cx="40" cy="50" r="4" fill="var(--text-soft)"/>
+        <circle cx="60" cy="50" r="4" fill="var(--text-soft)"/>
+        <path d="M40 64c3 4 17 4 20 0" stroke="var(--text-soft)" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <circle cx="72" cy="30" r="14" fill="none" stroke="var(--pulse)" stroke-width="4.5"/>
+        <line x1="82" y1="40" x2="92" y2="50" stroke="var(--pulse)" stroke-width="4.5" stroke-linecap="round"/>
+      </svg>
+      <h3>Нет результатов</h3>
+      <p>По запросу «<b id="search-empty-query"></b>» ничего не найдено.<br>Попробуйте снова.</p>
+    </div>
+    <div id="chatlist-scroll">
+      <div class="conv-row" id="open-thread">
+        <div class="conv-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></div>
+        <div class="conv-main">
+          <div class="conv-top">
+            <span class="conv-name">PulseChat
+              <svg class="badge" viewBox="0 0 24 24"><path fill="var(--verify)" d="M23 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L12 3 8.6 1.54 6.71 4.72 3.1 5.53l.34 3.68L1 12l2.44 2.78-.34 3.69 3.61.82L8.6 22.46 12 21l3.4 1.46 1.89-3.18 3.61-.82-.34-3.68L23 12z"/><path fill="white" d="M10 16.17l-3.09-3.09-1.41 1.41L10 19 20 9l-1.41-1.42z"/></svg>
+            </span>
+            <span class="conv-time" id="conv-time">сейчас</span>
+          </div>
+          <div class="conv-sub" id="conv-sub">Добро пожаловать в PulseChat 💠</div>
+        </div>
+      </div>
+      <div id="chatlist-empty-space">Это твой единственный локальный чат — личное пространство Pulse Chat.<br>Потяни список вниз, чтобы найти его по имени или юзернейму.</div>
+    </div>
+    <div class="tabbar-wrap">
+      <div class="tabbar">
+        <button class="tab-btn" data-tab="toast:Контакты"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Контакты</span></button>
+        <button class="tab-btn" data-tab="toast:Звонки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.79.65 2.65a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.43-1.43a2 2 0 0 1 2.11-.45c.86.31 1.75.53 2.65.65A2 2 0 0 1 22 16.92z"/></svg><span>Звонки</span></button>
+        <button class="tab-btn active" data-tab="screen-chatlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span>Чаты</span></button>
+        <button class="tab-btn" data-tab="screen-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Настройки</span></button>
+      </div>
+      <div class="tab-search-bubble" id="tab-search-bubble-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="screen-settings" class="screen">
+    <div class="top-header">
+      <button class="icon-btn-mini" id="settings-qr-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="21" y1="14" x2="21" y2="14.01"/><line x1="14" y1="17.5" x2="17.5" y2="17.5"/><line x1="21" y1="21" x2="21" y2="21.01"/><line x1="17.5" y1="21" x2="17.5" y2="17.5"/></svg></button>
+      <h1 style="flex:1; text-align:left;">Настройки</h1>
+      <button class="text-btn" id="settings-edit-btn">Изм.</button>
+    </div>
+    <div id="settings-scroll">
+      <div class="profile-card">
+        <div class="profile-avatar" id="settings-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <div class="profile-name" id="settings-name-text">Pulse ID
+          <svg class="badge" viewBox="0 0 24 24"><path fill="var(--verify)" d="M23 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L12 3 8.6 1.54 6.71 4.72 3.1 5.53l.34 3.68L1 12l2.44 2.78-.34 3.69 3.61.82L8.6 22.46 12 21l3.4 1.46 1.89-3.18 3.61-.82-.34-3.68L23 12z"/><path fill="white" d="M10 16.17l-3.09-3.09-1.41 1.41L10 19 20 9l-1.41-1.42z"/></svg>
+        </div>
+        <div class="profile-phone" id="settings-phone">+888 0000 0000</div>
+        <button id="toggle-phone-visibility" style="background:none;border:none;color:var(--pulse);font-size:13px;margin-top:8px;cursor:pointer;">Скрыть номер</button>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-row link" id="add-account-row">
+          <div class="ic" style="background:none; color:var(--pulse); width:22px; height:22px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+          <div class="label" style="color:var(--pulse);">Добавить аккаунт</div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-row link" id="myprofile-row">
+          <div class="ic" style="background:var(--pulse)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div class="label">Мой профиль</div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-row toast-row" data-toast="Прокси"><div class="ic" style="background:#34C759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div><div class="label">Прокси</div><div class="val">Отключён</div></div>
+        <div class="settings-row toast-row" data-toast="Избранное"><div class="ic" style="background:#3A8DE8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></div><div class="label">Избранное</div></div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-row toast-row" data-toast="Недавние звонки"><div class="ic" style="background:#34C759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.79.65 2.65a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.43-1.43a2 2 0 0 1 2.11-.45c.86.31 1.75.53 2.65.65A2 2 0 0 1 22 16.92z"/></svg></div><div class="label">Недавние звонки</div></div>
+        <div class="settings-row link" id="devices-row"><div class="ic" style="background:#E0A83A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="label">Устройства</div><div class="val">QR-код</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+        <div class="settings-row toast-row" data-toast="Папки с чатами"><div class="ic" style="background:#3A8DE8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><div class="label">Папки с чатами</div></div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-row toast-row" data-toast="Уведомления и звуки"><div class="ic" style="background:#E0483A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="label">Уведомления и звуки</div></div>
+        <div class="settings-row link" id="privacy-row"><div class="ic" style="background:#8A8F98"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="label">Конфиденциальность</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+        <div class="settings-row toast-row" data-toast="Данные и память"><div class="ic" style="background:#2FBFA6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div><div class="label">Данные и память</div></div>
+        <div class="settings-row toast-row" data-toast="Оформление"><div class="ic" style="background:#3AA0E0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" stroke="none"/></svg></div><div class="label">Оформление</div></div>
+        <div class="settings-row toast-row" data-toast="Энергосбережение"><div class="ic" style="background:#E0A83A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/></svg></div><div class="label">Энергосбережение</div><div class="val">Выкл.</div></div>
+        <div class="settings-row toast-row" data-toast="Язык"><div class="ic" style="background:#A863E0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><div class="label">Язык</div><div class="val">Русский</div></div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-row toast-row" data-toast="Pulse Premium"><div class="ic" style="background:linear-gradient(135deg,#8A6BE0,#3AA0E0)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg></div><div class="label">Pulse Premium</div></div>
+        <div class="settings-row toast-row" data-toast="Мои звёзды"><div class="ic" style="background:#E0A83A"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg></div><div class="label">Мои звёзды</div><div class="val">0</div></div>
+        <div class="settings-row toast-row" data-toast="Pulse для бизнеса"><div class="ic" style="background:#E0509A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 21V13h6v8"/></svg></div><div class="label">Pulse для бизнеса</div></div>
+        <div class="settings-row toast-row" data-toast="Отправить подарок"><div class="ic" style="background:#2FBFA6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg></div><div class="label">Отправить подарок</div></div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-row toast-row" data-toast="Помощь"><div class="ic" style="background:#E0A83A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><div class="label">Помощь</div></div>
+        <div class="settings-row toast-row" data-toast="Вопросы о Pulse Chat"><div class="ic" style="background:#3AA0E0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="label">Вопросы о Pulse Chat</div></div>
+        <div class="settings-row toast-row" data-toast="Возможности Pulse Chat"><div class="ic" style="background:#E0CB3A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg></div><div class="label">Возможности Pulse Chat</div></div>
+        <div class="settings-row"><div class="ic" style="background:#8B6BE0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></div><div class="label">О Pulse Chat</div><div class="val">1.0</div></div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-row" id="logout-row">
+          <div class="ic" style="background:#3A3D45"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+          <div class="label">Выйти</div>
+        </div>
+      </div>
+    </div>
+    <div class="tabbar-wrap">
+      <div class="tabbar">
+        <button class="tab-btn" data-tab="toast:Контакты"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Контакты</span></button>
+        <button class="tab-btn" data-tab="toast:Звонки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.79.65 2.65a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.43-1.43a2 2 0 0 1 2.11-.45c.86.31 1.75.53 2.65.65A2 2 0 0 1 22 16.92z"/></svg><span>Звонки</span></button>
+        <button class="tab-btn" data-tab="screen-chatlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span>Чаты</span></button>
+        <button class="tab-btn active" data-tab="screen-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Настройки</span></button>
+      </div>
+      <div class="tab-search-bubble" id="tab-search-bubble-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+    </div>
+  </div>
+
+  <!-- THREAD -->
+  <div id="screen-thread" class="screen">
+    <div id="thread-header">
+      <div class="thread-top">
+        <button id="thread-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <button id="thread-profile-btn" style="display:flex; align-items:center; gap:10px; flex:1; min-width:0; background:none; border:none; padding:0; cursor:pointer; text-align:left;">
+        <div class="thread-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></div>
+        <div class="thread-title-wrap">
+          <div class="thread-name" id="thread-name-text">PulseChat
+            <svg class="badge" viewBox="0 0 24 24"><path fill="var(--verify)" d="M23 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L12 3 8.6 1.54 6.71 4.72 3.1 5.53l.34 3.68L1 12l2.44 2.78-.34 3.69 3.61.82L8.6 22.46 12 21l3.4 1.46 1.89-3.18 3.61-.82-.34-3.68L23 12z"/><path fill="white" d="M10 16.17l-3.09-3.09-1.41 1.41L10 19 20 9l-1.41-1.42z"/></svg>
+          </div>
+          <div class="thread-status" id="thread-status-text">в сети</div>
+        </div>
+        </button>
+        <div class="bpm"><b id="bpm-count">72</b> bpm</div>
+      </div>
+      <div id="ekg-wrap">
+        <svg viewBox="0 0 400 34" preserveAspectRatio="none"><g id="ekg-track">
+          <path id="ekg-path" d="M0,17 L40,17 L52,17 L58,4 L64,30 L70,17 L100,17 L140,17 L152,17 L158,4 L164,30 L170,17 L200,17 L240,17 L252,17 L258,4 L264,30 L270,17 L300,17 L340,17 L352,17 L358,4 L364,30 L370,17 L400,17" transform="translate(0,0)"/>
+          <path d="M0,17 L40,17 L52,17 L58,4 L64,30 L70,17 L100,17 L140,17 L152,17 L158,4 L164,30 L170,17 L200,17 L240,17 L252,17 L258,4 L264,30 L270,17 L300,17 L340,17 L352,17 L358,4 L364,30 L370,17 L400,17" transform="translate(400,0)" fill="none" stroke="var(--pulse)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </g></svg>
+      </div>
+    </div>
+    <div id="pin-strip" class="pin-strip" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1v3.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>
+      <span class="txt" id="pin-strip-text">Закреплённое сообщение</span>
+    </div>
+    <div id="scroll"><div id="list"></div></div>
+    <div id="select-bar">
+      <button id="select-delete">Удалить</button>
+      <span class="sb-count" id="select-count">Выбрано: 0</span>
+      <button id="select-cancel">Готово</button>
+    </div>
+    <div id="block-banner"><span>PulseChat заблокирован.</span><button id="banner-unblock">Разблокировать</button></div>
+    <div id="composer">
+      <div class="reply-bar" id="reply-bar">
+        <div class="stripe"></div>
+        <div class="info"><div class="who">Ответ</div><div class="snippet" id="reply-snippet"></div></div>
+        <button id="reply-cancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div style="display:flex; align-items:flex-end; gap:8px; padding:8px 0 0;">
+        <textarea id="text" rows="1" placeholder="Сообщение…"></textarea>
+        <button id="send" aria-label="Отправить" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRIVACY SETTINGS -->
+  <div id="screen-privacy" class="screen">
+    <div class="top-header">
+      <button class="icon-btn" id="privacy-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <h1 style="font-size:20px;">Конфиденциальность</h1>
+      <span style="width:34px;"></span>
+    </div>
+    <div id="settings-scroll">
+      <div class="settings-group">
+        <div class="settings-row link" id="privacy-blocklist-row"><div class="ic" style="background:#E0483A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg></div><div class="label">Чёрный список</div><div class="val" id="privacy-blocklist-count">0</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+        <div class="settings-row toast-row" data-toast="Активные сайты"><div class="ic" style="background:#3A8DE8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><div class="label">Активные сайты</div><div class="val">1</div></div>
+        <div class="settings-row toast-row" data-toast="Код-пароль и Face ID"><div class="ic" style="background:#2FBFA6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="16" r="1"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="label">Код-пароль и Face ID</div><div class="val">Нет</div></div>
+        <div class="settings-row toast-row" data-toast="Автоудаление сообщений"><div class="ic" style="background:#A863E0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="label">Автоудаление сообщений</div><div class="val">Нет</div></div>
+      </div>
+      <div class="privacy-hint">Автоматически удалять сообщения спустя указанное время у всех участников во всех чатах, созданных после включения настройки.</div>
+
+      <div class="settings-group" id="privacy-options-group"></div>
+      <div class="privacy-hint">Здесь можно ограничить, кому видна эта информация о тебе: всем, только добавленным контактам, или никому.</div>
+    </div>
+  </div>
+
+  <!-- PRIVACY OPTION PICKER -->
+  <div id="screen-privacy-option" class="screen">
+    <div class="top-header">
+      <button class="icon-btn" id="privacy-option-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <h1 id="privacy-option-title" style="font-size:20px;">Параметр</h1>
+      <span style="width:34px;"></span>
+    </div>
+    <div id="settings-scroll">
+      <div class="privacy-hint" id="privacy-option-hint" style="padding-left:20px;"></div>
+      <div class="settings-group" id="privacy-option-list"></div>
+    </div>
+  </div>
+
+  <!-- DEVICES -->
+  <div id="screen-devices" class="screen">
+    <div class="top-header">
+      <button class="icon-btn" id="devices-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <h1 style="font-size:20px;">Устройства</h1>
+      <span style="width:34px;"></span>
+    </div>
+    <div id="settings-scroll">
+      <div class="devices-illust">
+        <svg viewBox="0 0 200 140" fill="none">
+          <rect x="30" y="10" width="140" height="90" rx="8" fill="var(--bg-2)" stroke="var(--line)" stroke-width="2"/>
+          <rect x="40" y="20" width="120" height="70" rx="3" fill="var(--bg)"/>
+          <rect x="46" y="28" width="46" height="6" rx="2" fill="var(--pulse)"/>
+          <rect x="46" y="40" width="60" height="4" rx="2" fill="var(--text-dim)"/>
+          <rect x="46" y="48" width="50" height="4" rx="2" fill="var(--text-dim)"/>
+          <rect x="46" y="56" width="65" height="4" rx="2" fill="var(--text-dim)"/>
+          <rect x="20" y="104" width="160" height="10" rx="4" fill="var(--bg-2)" stroke="var(--line)" stroke-width="2"/>
+          <rect x="85" y="107" width="30" height="4" rx="2" fill="var(--text-dim)"/>
+        </svg>
+      </div>
+      <div class="devices-copy">Ты можешь зайти в Pulse Chat для компьютера или браузера с помощью QR-кода.</div>
+      <button class="connect-btn" id="devices-connect-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="21" y1="14" x2="21" y2="21"/><line x1="14" y1="17.5" x2="21" y2="17.5"/></svg>Подключить устройство</button>
+
+      <div class="privacy-hint" style="text-transform:uppercase; letter-spacing:.03em;">Это устройство</div>
+      <div class="device-card">
+        <div class="dic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+        <div class="dtext">
+          <div class="dname">Этот iPhone</div>
+          <div class="dmeta">Pulse Chat · веб</div>
+          <div class="dloc" id="device-loc-text">Определение геолокации… · <b>в сети</b></div>
+        </div>
+      </div>
+      <div class="privacy-hint">Официальные способы попасть в Pulse Chat — этот сайт на iPhone и, в будущем, версии для компьютера.</div>
+
+      <div class="privacy-hint" style="text-transform:uppercase; letter-spacing:.03em; margin-top:14px;">Автоматически завершать сеансы</div>
+      <div class="settings-group" style="margin:0 20px 20px;">
+        <div class="settings-row link" id="devices-timeout-row"><div class="label">Если сеанс неактивен</div><div class="val" id="devices-timeout-val">6 месяцев</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTACT PROFILE -->
+  <div id="screen-profile" class="screen">
+    <div class="top-header">
+      <button class="icon-btn" id="profile-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <span style="font-size:15px; color:var(--text-soft);">Профиль</span>
+      <span style="width:34px;"></span>
+    </div>
+    <div id="profile-scroll">
+      <div class="profile-card">
+        <div class="profile-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></div>
+        <div class="profile-name" id="profile-name-text">PulseChat
+          <svg class="badge" viewBox="0 0 24 24"><path fill="var(--verify)" d="M23 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L12 3 8.6 1.54 6.71 4.72 3.1 5.53l.34 3.68L1 12l2.44 2.78-.34 3.69 3.61.82L8.6 22.46 12 21l3.4 1.46 1.89-3.18 3.61-.82-.34-3.68L23 12z"/><path fill="white" d="M10 16.17l-3.09-3.09-1.41 1.41L10 19 20 9l-1.41-1.42z"/></svg>
+        </div>
+        <div class="profile-status" id="profile-status-text">в сети</div>
+      </div>
+
+      <div class="verify-line">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span>Аккаунт верифицирован организацией <b>«Pulse»</b></span>
+      </div>
+
+      <div class="settings-group">
+        <div class="nick-row">
+          <div><div class="label">Никнейм</div><div class="val" id="nick-display">PulseChat</div></div>
+          <button id="nick-edit">Изменить</button>
+        </div>
+        <div class="nick-row">
+          <div><div class="label">Имя пользователя</div><div class="val" id="contact-username-display" style="color:var(--verify)">@pulsechat</div></div>
+          <button id="contact-username-edit">Изменить</button>
+        </div>
+      </div>
+
+      <div class="profile-actions">
+        <button class="act-add" id="act-add">Добавить в контакты</button>
+        <button class="act-block" id="act-block">Заблокировать</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MY PROFILE -->
+  <div id="screen-myprofile" class="screen">
+    <div class="top-header">
+      <button class="icon-btn" id="myprofile-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <span style="font-size:15px; color:var(--text-soft);">Мой профиль</span>
+      <button id="myprofile-edit-toggle">Изм.</button>
+    </div>
+    <div id="myprofile-scroll">
+      <div class="profile-card">
+        <div class="avatar-wrap" id="myprofile-avatar-wrap">
+          <div class="profile-avatar" id="myprofile-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div class="avatar-add-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+        </div>
+        <input type="file" id="avatar-file-input" accept="image/*" style="display:none">
+        <div class="mp-field" id="myprofile-name-row">
+          <div class="profile-name" id="myprofile-name-text" data-longpress="name">Pulse ID</div>
+          <button class="mp-pencil" id="myprofile-name-pencil" aria-label="Изменить имя"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        </div>
+      </div>
+
+      <div class="mp-info-card">
+        <div class="mp-info-row" id="myprofile-phone-row" data-longpress="phone">
+          <div class="mp-info-text">
+            <div class="mp-info-label">мобильный</div>
+            <div class="mp-info-value link" id="myprofile-phone-text">+888 0000 0000</div>
+          </div>
+          <button class="mp-pencil" id="myprofile-phone-pencil" aria-label="Изменить номер"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        </div>
+        <div class="mp-info-row" id="myprofile-username-row" data-longpress="username">
+          <div class="mp-info-text">
+            <div class="mp-info-label">имя пользователя</div>
+            <div class="mp-info-value link" id="myprofile-username-text">@pulseid</div>
+          </div>
+          <button class="mp-pencil" id="myprofile-username-pencil" aria-label="Изменить имя пользователя"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        </div>
+        <div class="mp-info-row" id="myprofile-bio-row" data-longpress="bio">
+          <div class="mp-info-text">
+            <div class="mp-info-label">о себе</div>
+            <div class="mp-info-value" id="myprofile-bio-text">Написать о себе</div>
+          </div>
+          <button class="mp-pencil" id="myprofile-bio-pencil" aria-label="Изменить о себе"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        </div>
+      </div>
+
+      <div class="lp-hint">Нажми на карандаш, чтобы изменить. Нажми и удерживай номер, имя пользователя или «о себе», чтобы изменить или скопировать. Нажми на аватар, чтобы добавить фото.</div>
+    </div>
+  </div>
+
+  <!-- MY PROFILE — EDIT SHEET -->
+  <div id="screen-myprofile-edit" class="screen">
+    <div class="top-header">
+      <button id="edit-cancel" class="text-btn">Отмена</button>
+      <button id="edit-done" class="text-btn strong">Готово</button>
+    </div>
+    <div id="myedit-scroll">
+      <div class="profile-card" style="padding-top:6px;">
+        <div class="avatar-wrap" id="myedit-avatar-wrap">
+          <div class="profile-avatar" id="myedit-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        </div>
+        <button id="myedit-choose-photo" class="link-btn">Выбрать фотографию</button>
+      </div>
+
+      <div class="mp-info-card">
+        <div class="mp-input-row"><input type="text" id="edit-name-input" placeholder="Имя"></div>
+        <div class="mp-input-row"><input type="text" id="edit-lastname-input" placeholder="Фамилия"></div>
+      </div>
+      <div class="mp-hint-text">Укажите имя и, если хотите, добавьте фотографию для Вашего профиля.</div>
+
+      <div class="mp-info-card">
+        <div class="mp-input-row"><input type="text" id="edit-bio-input" placeholder="О себе" maxlength="120"></div>
+      </div>
+      <div class="mp-hint-text">Напишите несколько строк о себе.</div>
+
+      <div class="mp-info-card">
+        <div class="mp-info-row mp-link-row" id="edit-birthday-row" style="position:relative;">
+          <div class="mp-row-icon" style="background:#3A8DE8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M12 3v6"/><path d="M8 7c0-2 4-2 4-4 0 2 4 2 4 4"/></svg></div>
+          <div class="mp-info-text"><div class="mp-row-label">День рождения</div></div>
+          <span class="mp-row-val" id="edit-birthday-val">Указать</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+          <input type="date" id="birthday-input" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; border:none; background:none; cursor:pointer;">
+        </div>
+      </div>
+
+      <div class="mp-info-card">
+        <button class="mp-info-row mp-link-row" id="edit-phone-row">
+          <div class="mp-row-icon" style="background:#34C759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.34 1.79.65 2.65a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.43-1.43a2 2 0 0 1 2.11-.45c.86.31 1.75.53 2.65.65A2 2 0 0 1 22 16.92z"/></svg></div>
+          <div class="mp-info-text"><div class="mp-row-label">Номер</div></div>
+          <span class="mp-row-val" id="edit-phone-val">+888 0000 0000</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+        <button class="mp-info-row mp-link-row" id="edit-username-row">
+          <div class="mp-row-icon" style="background:#8B6BE0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-5.5 8.28"/></svg></div>
+          <div class="mp-info-text"><div class="mp-row-label">Имя пользователя</div></div>
+          <span class="mp-row-val" id="edit-username-val">@pulseid</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+        <button class="mp-info-row mp-link-row" id="edit-colors-row">
+          <div class="mp-row-icon" style="background:#3ABEDD"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a10 10 0 1 1 0-20 8 8 0 0 1 8 8 5 5 0 0 1-5 5h-1a2 2 0 0 0-1 3.7A2 2 0 0 1 12 22z"/><circle cx="7" cy="12" r="1"/><circle cx="10" cy="8" r="1"/><circle cx="15" cy="8" r="1"/></svg></div>
+          <div class="mp-info-text"><div class="mp-row-label">Персональные цвета</div></div>
+          <span class="mp-row-dot" id="edit-colors-dot"></span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+        <button class="mp-info-row mp-link-row" id="edit-automation-row">
+          <div class="mp-row-icon" style="background:#B06BE0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></div>
+          <div class="mp-info-text"><div class="mp-row-label">Автоматизация чатов</div></div>
+          <span class="mp-row-val">Выкл.</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+      </div>
+      <div class="mp-hint-text">Подключите бота, который будет отвечать на сообщения от Вашего имени.</div>
+
+      <div class="mp-info-card">
+        <button class="mp-link-row mp-center-row" id="edit-add-account">Добавить аккаунт</button>
+      </div>
+      <div class="mp-hint-text">Вы можете подключить до четырёх аккаунтов с разными номерами телефона.</div>
+
+      <div class="mp-info-card">
+        <button class="mp-link-row mp-center-row danger" id="edit-logout">Выйти</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- LONG-PRESS CONTEXT MENU -->
+<div id="longpress-overlay">
+  <div id="longpress-backdrop"></div>
+  <div id="longpress-card">
+    <div class="lp-label" id="lp-label">мобильный</div>
+    <div class="lp-value" id="lp-value">+888 0000 0000</div>
+  </div>
+  <div id="longpress-menu">
+    <button id="lp-edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span id="lp-edit-text">Изменить номер</span></button>
+    <button id="lp-copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span id="lp-copy-text">Копировать номер</span></button>
+  </div>
+</div>
+
+<!-- MESSAGE CONTEXT MENU -->
+<div id="msg-ctx-backdrop"></div>
+<div id="msg-ctx-clone"></div>
+<div id="msg-ctx-reactions">
+  <button data-emoji="❤️">❤️</button>
+  <button data-emoji="🔥">🔥</button>
+  <button data-emoji="👍">👍</button>
+  <button data-emoji="👎">👎</button>
+  <button data-emoji="😍">😍</button>
+  <button data-emoji="👻">👻</button>
+</div>
+<div id="msg-ctx-menu"></div>
+
+<script>
+/* ---------- STABLE VIEWPORT HEIGHT (fixes iOS Safari address-bar jump) ---------- */
+function setAppHeight(){
+  const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+  document.documentElement.style.setProperty('--app-height', h + 'px');
+}
+setAppHeight();
+window.addEventListener('resize', setAppHeight);
+window.addEventListener('orientationchange', setAppHeight);
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', setAppHeight);
+  window.visualViewport.addEventListener('scroll', setAppHeight);
+}
+
+const VALID_CODE_PREFIX = '888';
+const ACCOUNTS = [
+  { digits: '00000000', code: '96844' },
+  { digits: '00000001', code: '99988' }
+];
+let pendingAccount = null;
+let flowMode = 'login'; // 'login' | 'change-number' | 'add-account'
+let pendingPhoneForFlow = null;
+const STORAGE_KEY = 'pulse-messages';
+const AUTH_KEY = 'pulse-auth';
+const PHONE_KEY = 'pulse-phone';
+
+const hasClaudeStorage = typeof window.storage !== 'undefined' && window.storage;
+
+const COUNTRIES = [
+  {flag:'💠', name:'Pulse ID', code:'888', pinned:true},
+  {flag:'🇷🇺', name:'Россия', code:'7'},
+  {flag:'🇺🇸', name:'США', code:'1'},
+  {flag:'🇬🇧', name:'Великобритания', code:'44'},
+  {flag:'🇩🇪', name:'Германия', code:'49'},
+  {flag:'🇫🇷', name:'Франция', code:'33'},
+  {flag:'🇮🇹', name:'Италия', code:'39'},
+  {flag:'🇪🇸', name:'Испания', code:'34'},
+  {flag:'🇺🇦', name:'Украина', code:'380'},
+  {flag:'🇰🇿', name:'Казахстан', code:'7'},
+  {flag:'🇧🇾', name:'Беларусь', code:'375'},
+  {flag:'🇦🇹', name:'Австрия', code:'43'},
+  {flag:'🇹🇷', name:'Турция', code:'90'},
+  {flag:'🇦🇪', name:'ОАЭ', code:'971'},
+  {flag:'🇨🇳', name:'Китай', code:'86'},
+  {flag:'🇯🇵', name:'Япония', code:'81'},
+  {flag:'🇮🇳', name:'Индия', code:'91'},
+  {flag:'🇧🇷', name:'Бразилия', code:'55'},
+  {flag:'🇨🇦', name:'Канада', code:'1'},
+  {flag:'🇦🇺', name:'Австралия', code:'61'},
+];
+let selectedCountry = COUNTRIES[0];
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>{
+    s.classList.remove('active', 'no-fade');
+    // clear any leftover inline styles a slide/swipe transition may not have
+    // finished cleaning up yet — otherwise a stale screen can flash back
+    // into view for a moment on the next navigation.
+    s.style.transition = ''; s.style.transform = ''; s.style.zIndex = '';
+  });
+  document.getElementById(id).classList.add('active');
+}
+
+async function storeGet(key){
+  try{
+    if(hasClaudeStorage){ const r = await window.storage.get(key, false); return r ? r.value : null; }
+    return localStorage.getItem(key);
+  }catch(e){ return null; }
+}
+async function storeSet(key, val){
+  try{
+    if(hasClaudeStorage){ await window.storage.set(key, val, false); }
+    else{ localStorage.setItem(key, val); }
+  }catch(e){}
+}
+
+async function getAuth(){ return (await storeGet(AUTH_KEY)) === 'true'; }
+async function setAuth(val){ await storeSet(AUTH_KEY, val ? 'true' : 'false'); }
+
+/* ---------- TOAST ---------- */
+function showToast(text){
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = text + ' — скоро';
+  t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 1400);
+}
+
+/* ---------- TAB BAR NAV ---------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const target = btn.dataset.tab;
+    if(target.startsWith('toast:')){ showToast(target.split(':')[1]); return; }
+    show(target);
+  });
+});
+
+/* ---------- COUNTRY PICKER ---------- */
+const countryList = document.getElementById('country-list');
+const countrySearch = document.getElementById('country-search');
+function renderCountries(filter){
+  const f = (filter || '').trim().toLowerCase();
+  countryList.innerHTML = '';
+  COUNTRIES.filter(c => !f || c.name.toLowerCase().includes(f) || c.code.includes(f)).forEach(c=>{
+    const el = document.createElement('div');
+    el.className = 'country-item' + (c.pinned ? ' pinned' : '');
+    el.innerHTML = `<span class="flag">${c.flag}</span><span class="name">${c.name}</span><span class="code">+${c.code}</span>`;
+    el.addEventListener('click', ()=>{
+      selectedCountry = c;
+      document.getElementById('country-flag').textContent = c.flag;
+      document.getElementById('country-name').textContent = c.name;
+      document.getElementById('cc-display').textContent = '+' + c.code;
+      hidePhoneErr();
+      show('screen-phone');
+    });
+    countryList.appendChild(el);
+  });
+}
+countrySearch.addEventListener('input', ()=> renderCountries(countrySearch.value));
+document.getElementById('country-btn').addEventListener('click', ()=>{
+  countrySearch.value = ''; renderCountries(''); show('screen-country');
+  setTimeout(()=> countrySearch.focus(), 250);
+});
+document.getElementById('country-cancel').addEventListener('click', ()=> show('screen-phone'));
+renderCountries('');
+
+/* ---------- PHONE SCREEN ---------- */
+const phoneInput = document.getElementById('phone-input');
+const phoneContinue = document.getElementById('phone-continue');
+const phoneErr = document.getElementById('phone-err');
+const phoneRow = document.getElementById('phone-row');
+
+function hidePhoneErr(){ phoneErr.classList.remove('show'); phoneRow.classList.remove('err'); }
+
+phoneInput.addEventListener('input', ()=>{
+  let digits = phoneInput.value.replace(/\D/g,'').slice(0,8);
+  phoneInput.value = digits.length > 4 ? digits.slice(0,4)+' '+digits.slice(4) : digits;
+  phoneContinue.disabled = digits.length < 4;
+  hidePhoneErr();
+});
+
+function genLoginCode(){
+  return String(Math.floor(10000 + Math.random() * 90000));
+}
+
+phoneContinue.addEventListener('click', ()=>{
+  const digits = phoneInput.value.replace(/\D/g,'');
+  if(selectedCountry.code !== VALID_CODE_PREFIX || digits.length < 4){
+    phoneErr.classList.add('show');
+    phoneRow.classList.add('err');
+    setTimeout(()=> phoneRow.classList.remove('err'), 320);
+    return;
+  }
+  // known demo numbers keep their original fixed code; any other Pulse ID
+  // number is accepted too, with a fresh random 5-digit code each time
+  const known = ACCOUNTS.find(a => a.digits === digits);
+  const account = known || { digits, code: genLoginCode() };
+  pendingAccount = account;
+  const fullPhone = '+' + selectedCountry.code + ' ' + phoneInput.value;
+  document.getElementById('code-phone-shown').textContent = fullPhone;
+  pendingPhoneForFlow = fullPhone;
+  if(flowMode === 'login'){
+    document.getElementById('settings-phone').textContent = fullPhone;
+    storeSet(PHONE_KEY, fullPhone);
+  }
+  sendLoginCodeMessage(account.code);
+  show('screen-code');
+  setTimeout(()=> codeBoxes[0].focus(), 300);
+});
+
+/* send the "official" login-code notification into the welcome chat,
+   same as Telegram's own service messages. The account/code matching
+   itself is untouched — this only mirrors the same code into the chat. */
+async function sendLoginCodeMessage(code){
+  const text = `Код для входа в PulseChat: ${code}\nНе давайте код никому, даже если его требуют от имени Telegram!\n\n❗️Этот код используется для входа в Ваш аккаунт в PulseChat. Он не может быть использован для чего-либо ещё.\n\nЕсли Вы не запрашивали код для входа, проигнорируйте это сообщение.`;
+  try{
+    const raw = await storeGet(STORAGE_KEY);
+    let msgs = raw ? JSON.parse(raw) : [];
+    if(msgs.length === 0){
+      msgs.push(Object.assign({}, WELCOME_MSG, { ts: Date.now() - 1000 }));
+    }
+    msgs.push({ id: 'code-' + Date.now(), text, ts: Date.now(), from: 'bot' });
+    await storeSet(STORAGE_KEY, JSON.stringify(msgs));
+  }catch(e){ console.error('Storage error', e); }
+}
+
+/* ---------- CODE SCREEN ---------- */
+const codeBoxes = Array.from(document.querySelectorAll('.code-box'));
+const codeErr = document.getElementById('code-err');
+codeBoxes.forEach((box, i)=>{
+  box.addEventListener('input', ()=>{
+    box.value = box.value.replace(/\D/g,'').slice(0,1);
+    codeErr.classList.remove('show');
+    if(box.value && i < codeBoxes.length - 1) codeBoxes[i+1].focus();
+    if(codeBoxes.every(b=>b.value)) checkCode();
+  });
+  box.addEventListener('keydown', (e)=>{
+    if(e.key === 'Backspace' && !box.value && i > 0) codeBoxes[i-1].focus();
+  });
+});
+async function checkCode(){
+  const entered = codeBoxes.map(b=>b.value).join('');
+  if(pendingAccount && entered === pendingAccount.code){
+    if(flowMode === 'change-number'){
+      realPhone = pendingPhoneForFlow;
+      await storeSet(PHONE_KEY, realPhone);
+      const hidden = (await storeGet(PHONE_HIDDEN_KEY)) === 'true';
+      updatePhoneDisplay(hidden);
+      document.getElementById('myprofile-phone-text').textContent = realPhone;
+      document.getElementById('edit-phone-val').textContent = realPhone;
+      finishPhoneFlow();
+      showSimpleToast('Номер изменён');
+    } else if(flowMode === 'add-account'){
+      finishPhoneFlow();
+      showSimpleToast('Аккаунт добавлен');
+    } else {
+      await setAuth(true);
+      enterApp();
+    }
+  }else{
+    codeBoxes.forEach(b=> b.classList.add('err'));
+    codeErr.classList.add('show');
+    setTimeout(()=>{
+      codeBoxes.forEach(b=>{ b.value=''; b.classList.remove('err'); });
+      codeBoxes[0].focus();
+    }, 350);
+  }
+}
+document.getElementById('code-back').addEventListener('click', ()=>{
+  codeBoxes.forEach(b=> b.value = '');
+  codeErr.classList.remove('show');
+  show('screen-phone');
+});
+
+/* ---------- REUSE THE REGISTRATION SCREENS FOR "change number" / "add account" ---------- */
+const phoneFlowCancel = document.getElementById('phone-flow-cancel');
+
+function startPhoneFlow(mode, fromScreenId){
+  flowMode = mode;
+  phoneFlowCancel.dataset.returnTo = fromScreenId || 'screen-myprofile';
+  phoneFlowCancel.style.display = 'block';
+  phoneInput.value = '';
+  phoneContinue.disabled = true;
+  hidePhoneErr();
+  codeBoxes.forEach(b=> b.value = '');
+  codeErr.classList.remove('show');
+  slideNav('screen-phone', fromScreenId || 'screen-myprofile', 'forward');
+  setTimeout(()=> phoneInput.focus(), 260);
+}
+
+function finishPhoneFlow(){
+  const returnTo = phoneFlowCancel.dataset.returnTo || 'screen-myprofile';
+  flowMode = 'login';
+  pendingPhoneForFlow = null;
+  phoneFlowCancel.style.display = 'none';
+  codeBoxes.forEach(b=> b.value = '');
+  hidePhoneErr(); codeErr.classList.remove('show');
+  phoneInput.value = ''; phoneContinue.disabled = true;
+  slideNav(returnTo, 'screen-code', 'back');
+}
+
+phoneFlowCancel.addEventListener('click', ()=>{
+  const returnTo = phoneFlowCancel.dataset.returnTo || 'screen-myprofile';
+  flowMode = 'login';
+  pendingPhoneForFlow = null;
+  phoneFlowCancel.style.display = 'none';
+  hidePhoneErr();
+  phoneInput.value = ''; phoneContinue.disabled = true;
+  slideNav(returnTo, 'screen-phone', 'back');
+});
+
+/* ---------- CHAT LIST / THREAD NAV (slide push/pop) ---------- */
+const SLIDE_MS = 320;
+const SLIDE_EASE = 'cubic-bezier(.32,.72,0,1)';
+
+function slideNav(newId, oldId, direction){
+  const newEl = document.getElementById(newId);
+  const oldEl = document.getElementById(oldId);
+  if(newEl === oldEl) return;
+
+  newEl.classList.add('no-fade'); oldEl.classList.add('no-fade');
+  newEl.classList.add('active'); oldEl.classList.add('active');
+
+  if(direction === 'forward'){
+    // new screen slides in from the right, over the old one (справа налево)
+    newEl.style.zIndex = '3'; oldEl.style.zIndex = '2';
+    newEl.style.transition = 'none';
+    newEl.style.transform = 'translateX(100%)';
+    oldEl.style.transform = 'translateX(0)';
+    // force reflow so the starting position is applied before animating
+    void newEl.offsetHeight;
+    newEl.style.transition = `transform ${SLIDE_MS}ms ${SLIDE_EASE}`;
+    requestAnimationFrame(()=>{ newEl.style.transform = 'translateX(0)'; });
+  } else {
+    // old screen slides out to the right, revealing the one behind it (слева направо)
+    oldEl.style.zIndex = '3'; newEl.style.zIndex = '2';
+    oldEl.style.transition = 'none';
+    oldEl.style.transform = 'translateX(0)';
+    newEl.style.transform = 'translateX(0)';
+    void oldEl.offsetHeight;
+    oldEl.style.transition = `transform ${SLIDE_MS}ms ${SLIDE_EASE}`;
+    requestAnimationFrame(()=>{ oldEl.style.transform = 'translateX(100%)'; });
+  }
+
+  setTimeout(()=>{
+    oldEl.classList.remove('active', 'no-fade');
+    oldEl.style.transition = ''; oldEl.style.transform = ''; oldEl.style.zIndex = '';
+    newEl.classList.remove('no-fade');
+    newEl.style.transition = ''; newEl.style.transform = ''; newEl.style.zIndex = '';
+  }, SLIDE_MS + 30);
+}
+
+/* edge drag-to-go-back: swipe left-to-right starting near the left edge closes it.
+   Restricted to the edge (instead of "anywhere") on purpose — starting it anywhere
+   meant an ordinary scroll or tap could be misread as a tiny horizontal drag,
+   which briefly nudged the screen and flashed the layer underneath for a moment. */
+function enableSwipeBack(screenId, targetId){
+  const el = document.getElementById(screenId);
+  const target = document.getElementById(targetId);
+  const EDGE = 28;
+  let startX = 0, startY = 0, dx = 0, dragging = false, tracking = false;
+
+  el.addEventListener('touchstart', (e)=>{
+    if(e.touches.length !== 1){ tracking = false; return; }
+    const x = e.touches[0].clientX;
+    if(x > EDGE){ tracking = false; return; }
+    startX = x; startY = e.touches[0].clientY;
+    dx = 0; dragging = false; tracking = true;
+  }, {passive:true});
+
+  el.addEventListener('touchmove', (e)=>{
+    if(!tracking) return;
+    const x = e.touches[0].clientX, y = e.touches[0].clientY;
+    dx = x - startX;
+    const dy = y - startY;
+    if(!dragging){
+      if(Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.4){ dragging = true; }
+      else if(Math.abs(dy) > 10){ tracking = false; return; }
+    }
+    if(dragging && dx > 0){
+      target.classList.add('active', 'no-fade');
+      target.style.zIndex = '2';
+      el.style.zIndex = '3';
+      el.style.transition = 'none';
+      el.style.transform = `translateX(${dx}px)`;
+    }
+  }, {passive:true});
+
+  function endDrag(){
+    if(dragging){
+      const width = el.getBoundingClientRect().width || 320;
+      if(dx > width * 0.28 || dx > 110){
+        el.style.transition = `transform ${SLIDE_MS - 40}ms ${SLIDE_EASE}`;
+        el.style.transform = 'translateX(100%)';
+        setTimeout(()=>{
+          el.classList.remove('active', 'no-fade');
+          el.style.transition = ''; el.style.transform = ''; el.style.zIndex = '';
+          target.classList.remove('no-fade');
+          target.style.zIndex = '';
+        }, SLIDE_MS - 20);
+      } else {
+        el.style.transition = 'transform .22s ease';
+        el.style.transform = 'translateX(0)';
+        setTimeout(()=>{
+          el.style.transition = ''; el.style.transform = ''; el.style.zIndex = '';
+          target.classList.remove('active', 'no-fade');
+          target.style.zIndex = '';
+        }, 220);
+      }
+    }
+    tracking = false; dragging = false;
+  }
+  el.addEventListener('touchend', endDrag);
+  el.addEventListener('touchcancel', endDrag);
+}
+
+document.getElementById('open-thread').addEventListener('click', ()=> slideNav('screen-thread', 'screen-chatlist', 'forward'));
+document.getElementById('thread-back').addEventListener('click', ()=> slideNav('screen-chatlist', 'screen-thread', 'back'));
+document.getElementById('thread-profile-btn').addEventListener('click', ()=> slideNav('screen-profile', 'screen-thread', 'forward'));
+document.getElementById('profile-back').addEventListener('click', ()=> slideNav('screen-thread', 'screen-profile', 'back'));
+
+enableSwipeBack('screen-thread', 'screen-chatlist');
+enableSwipeBack('screen-profile', 'screen-thread');
+
+/* ---------- CHAT LIST SEARCH (swipe down to open, swipe up to close) ---------- */
+(function setupChatSearch(){
+  const scrollEl = document.getElementById('chatlist-scroll');
+  const wrap = document.getElementById('chat-search-wrap');
+  const input = document.getElementById('chat-search-input');
+  const row = document.getElementById('open-thread');
+  const closeBtn = document.getElementById('chat-search-close');
+  const emptyState = document.getElementById('search-empty');
+  const emptyQuery = document.getElementById('search-empty-query');
+  const emptySpace = document.getElementById('chatlist-empty-space');
+  let startY = 0, tracking = false, moved = false, opened = false;
+
+  function openSearch(){
+    if(opened) return;
+    opened = true;
+    wrap.classList.add('show');
+    setTimeout(()=> input.focus(), 260);
+  }
+  window.openChatSearchBar = openSearch;
+  function closeSearch(){
+    if(!opened) return;
+    opened = false;
+    wrap.classList.remove('show');
+    input.value = '';
+    input.blur();
+    filterChats('');
+  }
+  closeBtn.addEventListener('click', closeSearch);
+
+  document.querySelectorAll('.search-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('.search-tab').forEach(t=> t.classList.remove('active'));
+      tab.classList.add('active');
+      if(tab.dataset.searchTab !== 'Чаты') showToast(tab.dataset.searchTab);
+    });
+  });
+
+  scrollEl.addEventListener('touchstart', (e)=>{
+    if(e.touches.length !== 1) return;
+    startY = e.touches[0].clientY;
+    moved = false;
+    // only starts tracking when the list is already scrolled to the top,
+    // like a native pull-to-reveal-search gesture
+    tracking = scrollEl.scrollTop <= 0;
+  }, {passive:true});
+
+  scrollEl.addEventListener('touchmove', (e)=>{
+    if(!tracking || moved) return;
+    const dy = e.touches[0].clientY - startY;
+    if(dy > 46 && !opened){ moved = true; openSearch(); }
+    else if(dy < -46 && opened){ moved = true; closeSearch(); }
+  }, {passive:true});
+
+  scrollEl.addEventListener('touchend', ()=>{ tracking = false; });
+
+  // scrolling the list back down also closes an open search bar
+  scrollEl.addEventListener('scroll', ()=>{
+    if(opened && scrollEl.scrollTop > 40) closeSearch();
+  });
+
+  input.addEventListener('input', ()=> filterChats(input.value));
+  input.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeSearch(); });
+
+  function filterChats(q){
+    let query = q.trim().toLowerCase();
+    if(!query){
+      row.style.display = '';
+      updateConvSub();
+      emptyState.classList.remove('show');
+      emptySpace.style.display = '';
+      return;
+    }
+    let stripped = query.startsWith('@') ? query.slice(1) : query;
+
+    // gather every nickname/username/name that exists anywhere in the app
+    // (the contact's nick + username, and the user's own name + username)
+    // and check the query against all of them at once
+    const candidateIds = [
+      'nick-display', 'contact-username-display',
+      'myprofile-username-text', 'myprofile-name-text',
+      'settings-name-text'
+    ];
+    const names = candidateIds
+      .map(id => document.getElementById(id)?.textContent || '')
+      .concat([typeof fullName === 'function' ? fullName() : ''])
+      .map(t => t.trim().toLowerCase().replace(/^@/, ''))
+      .filter(Boolean);
+
+    const matches = names.some(n => n.includes(stripped));
+    emptySpace.style.display = 'none';
+    if(matches){
+      row.style.display = '';
+      emptyState.classList.remove('show');
+      // search results show the person's status (online / last seen),
+      // same as Telegram's global search, instead of the last message
+      const statusText = document.getElementById('thread-status-text')?.textContent || 'в сети';
+      document.getElementById('conv-sub').textContent = statusText;
+    } else {
+      row.style.display = 'none';
+      emptyQuery.textContent = q.trim();
+      emptyState.classList.add('show');
+    }
+  }
+})();
+
+/* ---------- TAB BAR LONG-PRESS: floating search bubble (like the iOS peek gesture) ---------- */
+function setupTabBarPeek(tabbarEl){
+  const wrapEl = tabbarEl.closest('.tabbar-wrap');
+  const bubble = wrapEl && wrapEl.querySelector('.tab-search-bubble');
+  if(!bubble) return;
+  const PEEK_MS = 380;
+  const MAX_DRIFT = 16; // px the bubble is allowed to drift toward the finger
+  let timer = null, peeking = false, pressStartX = 0;
+
+  function pointFromEvent(e){
+    return e.changedTouches ? e.changedTouches[0] : e;
+  }
+  function isOverBubble(x, y){
+    const r = bubble.getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }
+  function showBubble(btn, startX){
+    peeking = true;
+    pressStartX = startX;
+    tabbarEl.classList.add('peeking');
+    btn.classList.add('pressed-peek');
+    bubble.classList.add('show');
+  }
+  function hideBubble(){
+    peeking = false;
+    tabbarEl.classList.remove('peeking');
+    bubble.classList.remove('show', 'hit');
+    bubble.style.removeProperty('--lp-drag');
+    tabbarEl.querySelectorAll('.tab-btn').forEach(b=> b.classList.remove('pressed-peek'));
+  }
+  function triggerSearch(){
+    show('screen-chatlist');
+    setTimeout(()=>{ if(window.openChatSearchBar) window.openChatSearchBar(); }, 60);
+  }
+
+  tabbarEl.querySelectorAll('.tab-btn').forEach(btn=>{
+    const start = (e)=>{
+      clearTimeout(timer);
+      const p = pointFromEvent(e);
+      timer = setTimeout(()=> showBubble(btn, p.clientX), PEEK_MS);
+    };
+    const move = (e)=>{
+      if(!peeking) return;
+      const p = pointFromEvent(e);
+      // the bubble drifts a little toward the finger, like it's being dragged
+      const drift = Math.max(-MAX_DRIFT, Math.min(MAX_DRIFT, p.clientX - pressStartX));
+      bubble.style.setProperty('--lp-drag', drift + 'px');
+      bubble.classList.toggle('hit', isOverBubble(p.clientX, p.clientY));
+    };
+    const end = (e)=>{
+      clearTimeout(timer);
+      if(!peeking) return;
+      const p = pointFromEvent(e);
+      const hit = isOverBubble(p.clientX, p.clientY);
+      hideBubble();
+      e.preventDefault();
+      e.stopPropagation();
+      if(hit) triggerSearch();
+    };
+    btn.addEventListener('touchstart', start, {passive:true});
+    btn.addEventListener('touchmove', move, {passive:true});
+    btn.addEventListener('touchend', end);
+    btn.addEventListener('touchcancel', ()=>{ clearTimeout(timer); hideBubble(); });
+    btn.addEventListener('mousedown', start);
+    btn.addEventListener('mousemove', move);
+    btn.addEventListener('mouseup', end);
+    btn.addEventListener('mouseleave', ()=>{ if(!peeking) clearTimeout(timer); });
+  });
+}
+document.querySelectorAll('.tabbar').forEach(setupTabBarPeek);
+const CONTACT_USERNAME_KEY = 'pulse-contact-username';
+const DEFAULT_CONTACT_USERNAME = '@pulsechat';
+const ADDED_KEY = 'pulse-added';
+const BLOCKED_KEY = 'pulse-blocked';
+const PHONE_HIDDEN_KEY = 'pulse-phone-hidden';
+let realPhone = '+888 0000 0000';
+
+function applyStatus(blocked){
+  const statusText = blocked ? 'был(а) давно' : 'в сети';
+  document.getElementById('thread-status-text').textContent = statusText;
+  document.getElementById('profile-status-text').textContent = statusText;
+  document.getElementById('profile-status-text').classList.toggle('offline', blocked);
+  document.getElementById('block-banner').style.display = blocked ? 'flex' : 'none';
+  document.getElementById('composer').classList.toggle('disabled', blocked);
+  const actBlock = document.getElementById('act-block');
+  actBlock.textContent = blocked ? 'Разблокировать' : 'Заблокировать';
+  actBlock.classList.toggle('blocked', blocked);
+}
+
+async function initContactState(){
+  const nick = await storeGet(NICK_KEY);
+  if(nick){
+    document.getElementById('nick-display').textContent = nick;
+    document.getElementById('thread-name-text').firstChild.textContent = nick + ' ';
+    document.getElementById('profile-name-text').firstChild.textContent = nick + ' ';
+    document.querySelector('.conv-name').firstChild.textContent = nick + ' ';
+  }
+  const contactUsername = await storeGet(CONTACT_USERNAME_KEY);
+  document.getElementById('contact-username-display').textContent = contactUsername || DEFAULT_CONTACT_USERNAME;
+
+  const added = (await storeGet(ADDED_KEY)) === 'true';
+  const actAdd = document.getElementById('act-add');
+  actAdd.textContent = added ? 'В контактах' : 'Добавить в контакты';
+  actAdd.classList.toggle('added', added);
+
+  const blocked = (await storeGet(BLOCKED_KEY)) === 'true';
+  applyStatus(blocked);
+
+  const hidden = (await storeGet(PHONE_HIDDEN_KEY)) === 'true';
+  const savedPhone = await storeGet(PHONE_KEY);
+  if(savedPhone) realPhone = savedPhone;
+  updatePhoneDisplay(hidden);
+}
+
+function updatePhoneDisplay(hidden){
+  document.getElementById('settings-phone').textContent = hidden ? 'Скрыт' : realPhone;
+  document.getElementById('toggle-phone-visibility').textContent = hidden ? 'Показать номер' : 'Скрыть номер';
+}
+
+document.getElementById('nick-edit').addEventListener('click', async ()=>{
+  const current = document.getElementById('nick-display').textContent;
+  const val = prompt('Никнейм для PulseChat', current);
+  if(val === null) return;
+  const nick = val.trim() || 'PulseChat';
+  await storeSet(NICK_KEY, nick);
+  document.getElementById('nick-display').textContent = nick;
+  document.getElementById('thread-name-text').firstChild.textContent = nick + ' ';
+  document.getElementById('profile-name-text').firstChild.textContent = nick + ' ';
+  document.querySelector('.conv-name').firstChild.textContent = nick + ' ';
+});
+
+document.getElementById('contact-username-edit').addEventListener('click', async ()=>{
+  const current = document.getElementById('contact-username-display').textContent;
+  let val = prompt('Имя пользователя для PulseChat', current.replace(/^@/, ''));
+  if(val === null) return;
+  val = val.trim().replace(/^@/, '').replace(/\s+/g,'');
+  const username = '@' + (val || DEFAULT_CONTACT_USERNAME.replace(/^@/, ''));
+  await storeSet(CONTACT_USERNAME_KEY, username);
+  document.getElementById('contact-username-display').textContent = username;
+});
+
+document.getElementById('act-add').addEventListener('click', async ()=>{
+  const added = document.getElementById('act-add').classList.contains('added');
+  const next = !added;
+  await storeSet(ADDED_KEY, next ? 'true' : 'false');
+  const actAdd = document.getElementById('act-add');
+  actAdd.textContent = next ? 'В контактах' : 'Добавить в контакты';
+  actAdd.classList.toggle('added', next);
+});
+
+async function setBlocked(val){
+  await storeSet(BLOCKED_KEY, val ? 'true' : 'false');
+  applyStatus(val);
+}
+document.getElementById('act-block').addEventListener('click', async ()=>{
+  const blocked = document.getElementById('act-block').classList.contains('blocked');
+  if(!blocked && !confirm('Заблокировать PulseChat?')) return;
+  await setBlocked(!blocked);
+});
+document.getElementById('banner-unblock').addEventListener('click', async ()=>{ await setBlocked(false); });
+
+document.getElementById('toggle-phone-visibility').addEventListener('click', async ()=>{
+  const hidden = (await storeGet(PHONE_HIDDEN_KEY)) === 'true';
+  const next = !hidden;
+  await storeSet(PHONE_HIDDEN_KEY, next ? 'true' : 'false');
+  updatePhoneDisplay(next);
+});
+
+/* ---------- MY PROFILE ---------- */
+const MY_NAME_KEY = 'pulse-my-name';
+const MY_LASTNAME_KEY = 'pulse-my-lastname';
+const MY_USERNAME_KEY = 'pulse-my-username';
+const MY_BIO_KEY = 'pulse-my-bio';
+const MY_AVATAR_KEY = 'pulse-my-avatar';
+const MY_BIRTHDAY_KEY = 'pulse-my-birthday';
+const DEFAULT_MY_NAME = 'Pulse ID';
+const DEFAULT_MY_USERNAME = '@pulseid';
+const DEFAULT_MY_BIO = 'Написать о себе';
+let myFirstName = DEFAULT_MY_NAME;
+let myLastName = '';
+
+function fullName(){
+  const joined = [myFirstName, myLastName].filter(Boolean).join(' ').trim();
+  return joined || DEFAULT_MY_NAME;
+}
+function refreshNameDisplays(){
+  const n = fullName();
+  document.getElementById('myprofile-name-text').textContent = n;
+  document.getElementById('settings-name-text').firstChild.textContent = n + ' ';
+  const switchName = document.getElementById('switch-name-text');
+  if(switchName) switchName.textContent = n;
+}
+
+document.getElementById('myprofile-row').addEventListener('click', ()=> show('screen-myprofile'));
+document.getElementById('myprofile-back').addEventListener('click', ()=> show('screen-settings'));
+
+function applyAvatar(dataUrl){
+  const targets = [document.getElementById('myprofile-avatar'), document.getElementById('settings-avatar'), document.getElementById('myedit-avatar'), document.getElementById('switch-avatar')];
+  targets.forEach(t=>{
+    if(!t) return;
+    if(dataUrl){ t.innerHTML = `<img src="${dataUrl}" alt="">`; }
+    else { t.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'; }
+  });
+}
+
+async function initMyProfile(){
+  myFirstName = (await storeGet(MY_NAME_KEY)) || DEFAULT_MY_NAME;
+  myLastName = (await storeGet(MY_LASTNAME_KEY)) || '';
+  refreshNameDisplays();
+
+  const bio = (await storeGet(MY_BIO_KEY)) || DEFAULT_MY_BIO;
+  document.getElementById('myprofile-bio-text').textContent = bio;
+
+  const username = (await storeGet(MY_USERNAME_KEY)) || DEFAULT_MY_USERNAME;
+  document.getElementById('myprofile-username-text').textContent = username;
+
+  const avatar = await storeGet(MY_AVATAR_KEY);
+  if(avatar) applyAvatar(avatar);
+
+  document.getElementById('myprofile-phone-text').textContent = realPhone;
+}
+
+/* -- avatar upload -- */
+const avatarFileInput = document.getElementById('avatar-file-input');
+document.getElementById('myprofile-avatar-wrap').addEventListener('click', ()=> avatarFileInput.click());
+document.getElementById('myedit-avatar-wrap').addEventListener('click', ()=> avatarFileInput.click());
+document.getElementById('myedit-choose-photo').addEventListener('click', ()=> avatarFileInput.click());
+avatarFileInput.addEventListener('change', ()=>{
+  const file = avatarFileInput.files && avatarFileInput.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const img = new Image();
+    img.onload = async ()=>{
+      // downscale to keep the stored value small
+      const size = 320;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (size - w)/2, (size - h)/2, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      await storeSet(MY_AVATAR_KEY, dataUrl);
+      applyAvatar(dataUrl);
+      showSimpleToast('Фото профиля обновлено');
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+  avatarFileInput.value = '';
+});
+
+/* -- generic toast without the "— скоро" suffix -- */
+function showSimpleToast(text){
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = text;
+  t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 1400);
+}
+
+/* -- copy helper -- */
+async function copyToClipboard(text){
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(e){}
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    return true;
+  }catch(e){ return false; }
+}
+
+/* -- long-press context menu (Изменить / Копировать) -- */
+const lpOverlay = document.getElementById('longpress-overlay');
+const lpLabel = document.getElementById('lp-label');
+const lpValue = document.getElementById('lp-value');
+const lpEditBtn = document.getElementById('lp-edit');
+const lpCopyBtn = document.getElementById('lp-copy');
+const lpEditText = document.getElementById('lp-edit-text');
+const lpCopyText = document.getElementById('lp-copy-text');
+let currentLPConfig = null;
+
+const LP_FIELDS = {
+  phone: {
+    label: 'мобильный',
+    editLabel: 'Изменить номер',
+    copyLabel: 'Копировать номер',
+    getValue: ()=> realPhone,
+    onEdit: async ()=>{
+      startPhoneFlow('change-number', 'screen-myprofile');
+    }
+  },
+  name: {
+    label: 'имя',
+    editLabel: 'Изменить имя',
+    copyLabel: 'Копировать имя',
+    getValue: ()=> fullName(),
+    onEdit: async ()=>{
+      const val = prompt('Имя и фамилия', fullName() === DEFAULT_MY_NAME ? '' : fullName());
+      if(val === null) return;
+      const parts = val.trim().split(/\s+/).filter(Boolean);
+      myFirstName = parts.shift() || DEFAULT_MY_NAME;
+      myLastName = parts.join(' ');
+      await storeSet(MY_NAME_KEY, myFirstName);
+      await storeSet(MY_LASTNAME_KEY, myLastName);
+      refreshNameDisplays();
+    }
+  },
+  bio: {
+    label: 'о себе',
+    editLabel: 'Изменить о себе',
+    copyLabel: 'Копировать текст',
+    getValue: ()=> document.getElementById('myprofile-bio-text').textContent,
+    onEdit: async ()=>{
+      const current = document.getElementById('myprofile-bio-text').textContent;
+      const val = prompt('О себе', current === DEFAULT_MY_BIO ? '' : current);
+      if(val === null) return;
+      const bio = val.trim() || DEFAULT_MY_BIO;
+      await storeSet(MY_BIO_KEY, bio);
+      document.getElementById('myprofile-bio-text').textContent = bio;
+    }
+  },
+  username: {
+    label: 'имя пользователя',
+    editLabel: 'Изменить имя пользователя',
+    copyLabel: 'Копировать имя пользователя',
+    getValue: ()=> document.getElementById('myprofile-username-text').textContent,
+    onEdit: async ()=>{
+      const current = document.getElementById('myprofile-username-text').textContent;
+      let val = prompt('Имя пользователя', current.replace(/^@/, ''));
+      if(val === null) return;
+      val = val.trim().replace(/^@/, '').replace(/\s+/g,'');
+      const username = '@' + (val || DEFAULT_MY_USERNAME.replace(/^@/, ''));
+      await storeSet(MY_USERNAME_KEY, username);
+      document.getElementById('myprofile-username-text').textContent = username;
+    }
+  }
+};
+
+function openLongPress(key){
+  const cfg = LP_FIELDS[key];
+  if(!cfg) return;
+  currentLPConfig = cfg;
+  lpLabel.textContent = cfg.label;
+  lpValue.textContent = cfg.getValue();
+  lpEditText.textContent = cfg.editLabel;
+  lpCopyText.textContent = cfg.copyLabel;
+  lpOverlay.classList.add('show');
+}
+function closeLongPress(){ lpOverlay.classList.remove('show'); }
+
+lpEditBtn.addEventListener('click', async ()=>{
+  const cfg = currentLPConfig;
+  closeLongPress();
+  if(cfg) await cfg.onEdit();
+});
+lpCopyBtn.addEventListener('click', async ()=>{
+  const cfg = currentLPConfig;
+  closeLongPress();
+  if(!cfg) return;
+  const ok = await copyToClipboard(cfg.getValue());
+  showSimpleToast(ok ? 'Скопировано' : 'Не удалось скопировать');
+});
+document.getElementById('longpress-backdrop').addEventListener('click', closeLongPress);
+
+function setupLongPress(el){
+  const key = el.dataset.longpress;
+  let timer = null;
+  let startX = 0, startY = 0;
+  const start = (e)=>{
+    clearTimeout(timer);
+    const p = e.touches ? e.touches[0] : e;
+    startX = p.clientX; startY = p.clientY;
+    timer = setTimeout(()=> openLongPress(key), 450);
+  };
+  // only cancel on a real drag, not on the tiny jitter a held finger produces
+  const move = (e)=>{
+    const p = e.touches ? e.touches[0] : e;
+    if(Math.abs(p.clientX - startX) > 12 || Math.abs(p.clientY - startY) > 12) clearTimeout(timer);
+  };
+  const cancel = ()=> clearTimeout(timer);
+  el.addEventListener('touchstart', start, {passive:true});
+  el.addEventListener('touchmove', move, {passive:true});
+  el.addEventListener('touchend', cancel);
+  el.addEventListener('touchcancel', cancel);
+  el.addEventListener('mousedown', start);
+  el.addEventListener('mousemove', move);
+  el.addEventListener('mouseup', cancel);
+  el.addEventListener('mouseleave', cancel);
+  el.addEventListener('contextmenu', (e)=>{ e.preventDefault(); clearTimeout(timer); openLongPress(key); });
+}
+document.querySelectorAll('[data-longpress]').forEach(setupLongPress);
+
+/* -- direct-tap pencil buttons: same edit actions, no long-press needed -- */
+function wirePencil(id, fieldKey){
+  const btn = document.getElementById(id);
+  if(!btn) return;
+  btn.addEventListener('click', async (e)=>{
+    e.stopPropagation();
+    const cfg = LP_FIELDS[fieldKey];
+    if(cfg) await cfg.onEdit();
+  });
+}
+wirePencil('myprofile-name-pencil', 'name');
+wirePencil('myprofile-phone-pencil', 'phone');
+wirePencil('myprofile-username-pencil', 'username');
+wirePencil('myprofile-bio-pencil', 'bio');
+
+/* ---------- MY PROFILE — FULL EDIT SHEET ---------- */
+const editNameInput = document.getElementById('edit-name-input');
+const editBioInput = document.getElementById('edit-bio-input');
+
+const editLastnameInput = document.getElementById('edit-lastname-input');
+async function openEditSheet(){
+  editNameInput.value = myFirstName === DEFAULT_MY_NAME ? '' : myFirstName;
+  editLastnameInput.value = myLastName;
+  const bio = document.getElementById('myprofile-bio-text').textContent;
+  editBioInput.value = bio === DEFAULT_MY_BIO ? '' : bio;
+  document.getElementById('edit-phone-val').textContent = realPhone;
+  document.getElementById('edit-username-val').textContent = document.getElementById('myprofile-username-text').textContent;
+  const savedBday = await storeGet(MY_BIRTHDAY_KEY);
+  birthdayInput.value = savedBday || '';
+  document.getElementById('edit-birthday-val').textContent = fmtBirthday(savedBday);
+  show('screen-myprofile-edit');
+  setTimeout(()=> editNameInput.focus(), 260);
+}
+document.getElementById('myprofile-edit-toggle').addEventListener('click', openEditSheet);
+
+document.getElementById('edit-cancel').addEventListener('click', ()=> show('screen-myprofile'));
+
+document.getElementById('edit-done').addEventListener('click', async ()=>{
+  myFirstName = editNameInput.value.trim() || DEFAULT_MY_NAME;
+  myLastName = editLastnameInput.value.trim();
+  await storeSet(MY_NAME_KEY, myFirstName);
+  await storeSet(MY_LASTNAME_KEY, myLastName);
+  refreshNameDisplays();
+
+  const bio = editBioInput.value.trim() || DEFAULT_MY_BIO;
+  await storeSet(MY_BIO_KEY, bio);
+  document.getElementById('myprofile-bio-text').textContent = bio;
+
+  show('screen-myprofile');
+  showSimpleToast('Профиль обновлён');
+});
+
+/* -- birthday: a real (invisible) native date input sits on top of the row -- */
+const birthdayInput = document.getElementById('birthday-input');
+function fmtBirthday(iso){
+  if(!iso) return 'Указать';
+  const d = new Date(iso + 'T00:00:00');
+  if(isNaN(d)) return 'Указать';
+  return d.toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+}
+birthdayInput.addEventListener('change', async ()=>{
+  const iso = birthdayInput.value;
+  if(!iso) return;
+  await storeSet(MY_BIRTHDAY_KEY, iso);
+  document.getElementById('edit-birthday-val').textContent = fmtBirthday(iso);
+});
+
+document.getElementById('edit-colors-row').addEventListener('click', ()=> showToast('Персональные цвета'));
+document.getElementById('edit-automation-row').addEventListener('click', ()=> showToast('Автоматизация чатов'));
+
+document.getElementById('edit-phone-row').addEventListener('click', ()=>{
+  startPhoneFlow('change-number', 'screen-myprofile-edit');
+});
+document.getElementById('edit-username-row').addEventListener('click', async ()=>{
+  await LP_FIELDS.username.onEdit();
+  document.getElementById('edit-username-val').textContent = document.getElementById('myprofile-username-text').textContent;
+});
+document.getElementById('edit-add-account').addEventListener('click', ()=>{
+  startPhoneFlow('add-account', 'screen-myprofile-edit');
+});
+document.getElementById('add-account-row').addEventListener('click', ()=>{
+  startPhoneFlow('add-account', 'screen-settings');
+});
+document.getElementById('settings-qr-btn').addEventListener('click', ()=> showToast('QR-код'));
+document.getElementById('settings-edit-btn').addEventListener('click', openEditSheet);
+document.querySelectorAll('.toast-row[data-toast]').forEach(row=>{
+  row.addEventListener('click', ()=> showToast(row.dataset.toast));
+});
+
+/* ---------- PRIVACY SETTINGS ---------- */
+const PRIVACY_FIELDS = [
+  { key:'priv-phone',    label:'Номер телефона',        hint:'Пользователи, которые сохранили твой номер, будут видеть его и в Pulse Chat.' },
+  { key:'priv-lastseen', label:'Время захода',           hint:'Кто видит, когда ты последний раз был(а) в сети.' },
+  { key:'priv-photo',    label:'Фотографии профиля',     hint:'Кому доступен просмотр фотографии в твоём профиле.' },
+  { key:'priv-about',    label:'Раздел «О себе»',        hint:'Кто видит раздел «О себе» в твоём профиле.' },
+  { key:'priv-forward',  label:'Пересылка сообщений',    hint:'В пересланных сообщениях не будет ссылки на твой аккаунт, если выбрать «Никто».' },
+  { key:'priv-calls',    label:'Звонки',                 hint:'Кто может звонить тебе в Pulse Chat.' },
+  { key:'priv-voice',    label:'Голосовые сообщения',    hint:'Кто может присылать тебе голосовые сообщения.' },
+  { key:'priv-messages', label:'Сообщения',               hint:'Кто может первым написать тебе в Pulse Chat.' },
+  { key:'priv-invites',  label:'Приглашения',             hint:'Кто может добавлять тебя в группы и каналы.' },
+];
+const PRIVACY_CHOICES = ['Все', 'Контакты', 'Никто'];
+
+async function getPrivacyValue(key){
+  return (await storeGet(key)) || 'Все';
+}
+
+async function renderPrivacyGroup(){
+  const group = document.getElementById('privacy-options-group');
+  group.innerHTML = '';
+  for(const f of PRIVACY_FIELDS){
+    const val = await getPrivacyValue(f.key);
+    const row = document.createElement('div');
+    row.className = 'settings-row link';
+    row.innerHTML = `<div class="label">${f.label}</div><div class="val">${val}</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+    row.addEventListener('click', ()=> openPrivacyOption(f));
+    group.appendChild(row);
+  }
+}
+
+async function openPrivacyOption(field){
+  privacyOptionReturnScreen = 'screen-privacy';
+  document.getElementById('privacy-option-title').textContent = field.label;
+  document.getElementById('privacy-option-hint').textContent = field.hint || '';
+  const current = await getPrivacyValue(field.key);
+  const list = document.getElementById('privacy-option-list');
+  list.innerHTML = '';
+  PRIVACY_CHOICES.forEach(choice=>{
+    const row = document.createElement('div');
+    row.className = 'radio-row' + (choice === current ? ' selected' : '');
+    row.innerHTML = `<span class="rlabel">${choice}</span><span class="dot-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+    row.addEventListener('click', async ()=>{
+      await storeSet(field.key, choice);
+      show('screen-privacy', 'back');
+      await renderPrivacyGroup();
+    });
+    list.appendChild(row);
+  });
+  show('screen-privacy-option', 'forward');
+}
+
+async function updateBlocklistCount(){
+  const blocked = (await storeGet(BLOCKED_KEY)) === 'true';
+  document.getElementById('privacy-blocklist-count').textContent = blocked ? '1' : '0';
+}
+
+document.getElementById('devices-row').addEventListener('click', ()=>{
+  show('screen-devices', 'forward');
+  updateDeviceLocation();
+});
+async function updateDeviceLocation(){
+  const el = document.getElementById('device-loc-text');
+  if(!el) return;
+  try{
+    const res = await fetch('https://ipapi.co/json/');
+    const data = await res.json();
+    const parts = [data.city, data.country_name].filter(Boolean);
+    el.innerHTML = (parts.length ? escapeHtml(parts.join(', ')) : 'Местоположение неизвестно') + ' · <b>в сети</b>';
+  }catch(e){
+    el.innerHTML = 'Местоположение недоступно · <b>в сети</b>';
+  }
+}
+document.getElementById('devices-back').addEventListener('click', ()=> show('screen-settings', 'back'));
+document.getElementById('devices-connect-btn').addEventListener('click', ()=> showToast('Подключение по QR'));
+
+const DEVICE_TIMEOUT_KEY = 'pulse-session-timeout';
+const DEVICE_TIMEOUT_CHOICES = ['1 неделя', '1 месяц', '3 месяца', '6 месяцев', '1 год'];
+
+let privacyOptionReturnScreen = 'screen-privacy';
+
+document.getElementById('devices-timeout-row').addEventListener('click', async ()=>{
+  privacyOptionReturnScreen = 'screen-devices';
+  const current = (await storeGet(DEVICE_TIMEOUT_KEY)) || '6 месяцев';
+  document.getElementById('privacy-option-title').textContent = 'Если сеанс неактивен';
+  document.getElementById('privacy-option-hint').textContent = 'Сеансы на других устройствах, неактивные дольше этого срока, будут автоматически завершены.';
+  const list = document.getElementById('privacy-option-list');
+  list.innerHTML = '';
+  DEVICE_TIMEOUT_CHOICES.forEach(choice=>{
+    const row = document.createElement('div');
+    row.className = 'radio-row' + (choice === current ? ' selected' : '');
+    row.innerHTML = `<span class="rlabel">${choice}</span><span class="dot-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+    row.addEventListener('click', async ()=>{
+      await storeSet(DEVICE_TIMEOUT_KEY, choice);
+      document.getElementById('devices-timeout-val').textContent = choice;
+      show('screen-devices', 'back');
+    });
+    list.appendChild(row);
+  });
+  show('screen-privacy-option', 'forward');
+});
+(async ()=>{
+  const saved = await storeGet(DEVICE_TIMEOUT_KEY);
+  if(saved) document.getElementById('devices-timeout-val').textContent = saved;
+})();
+if(typeof attachSwipeBack === 'function') attachSwipeBack('screen-devices', 'screen-settings');
+
+document.getElementById('privacy-row').addEventListener('click', async ()=>{
+  await renderPrivacyGroup();
+  await updateBlocklistCount();
+  show('screen-privacy', 'forward');
+});
+document.getElementById('privacy-back').addEventListener('click', ()=> show('screen-settings', 'back'));
+document.getElementById('privacy-option-back').addEventListener('click', ()=> show(privacyOptionReturnScreen, 'back'));
+document.getElementById('privacy-blocklist-row').addEventListener('click', ()=>{
+  showToast('В чёрном списке: PulseChat, если заблокирован');
+  show('screen-profile', 'forward');
+});
+if(typeof attachSwipeBack === 'function'){
+  attachSwipeBack('screen-privacy', 'screen-settings');
+  attachSwipeBack('screen-privacy-option', 'screen-privacy');
+}
+
+/* ---------- LOGOUT (shared by Settings and the edit sheet) ---------- */
+async function doLogout(){
+  if(!confirm('Выйти из Pulse Chat?')) return;
+  await setAuth(false);
+  phoneInput.value = '';
+  phoneContinue.disabled = true;
+  codeBoxes.forEach(b=> b.value = '');
+  hidePhoneErr();
+  show('screen-phone');
+}
+document.getElementById('logout-row').addEventListener('click', doLogout);
+document.getElementById('edit-logout').addEventListener('click', doLogout);
+
+/* ---------- THREAD MESSAGES ---------- */
+const list = document.getElementById('list');
+const scrollBox = document.getElementById('scroll');
+const textEl = document.getElementById('text');
+const sendBtn = document.getElementById('send');
+const bpmCount = document.getElementById('bpm-count');
+const WELCOME_MSG = { id:'welcome-msg', text:'Добро пожаловать в PulseChat 💠\nЗдесь сохраняется всё, что ты пишешь — только для тебя.', ts: null, from:'bot' };
+
+let messages = [];
+let replyToId = null;
+let editingId = null;
+let selectMode = false;
+let selectedIds = new Set();
+
+async function loadMessages(){
+  try{
+    const raw = await storeGet(STORAGE_KEY);
+    messages = raw ? JSON.parse(raw) : [];
+  }catch(e){ messages = []; }
+  if(messages.length === 0){
+    const seeded = Object.assign({}, WELCOME_MSG, { ts: Date.now() });
+    messages = [seeded];
+    await saveMessages();
+  }
+  render();
+}
+async function saveMessages(){
+  try{ await storeSet(STORAGE_KEY, JSON.stringify(messages)); }
+  catch(e){ console.error('Storage error', e); }
+}
+
+function fmtTime(ts){ return new Date(ts).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}); }
+function fmtDay(ts){
+  const d = new Date(ts), today = new Date(), yest = new Date(); yest.setDate(today.getDate()-1);
+  const sameDay = (a,b)=> a.toDateString() === b.toDateString();
+  if(sameDay(d, today)) return 'сегодня';
+  if(sameDay(d, yest)) return 'вчера';
+  return d.toLocaleDateString('ru-RU', {day:'numeric', month:'long'});
+}
+function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+function findMsg(id){ return messages.find(m=>m.id===id); }
+
+function updateConvSub(){
+  const lastMsg = messages[messages.length - 1];
+  document.getElementById('conv-sub').textContent = lastMsg ? lastMsg.text.split('\n')[0] : 'Добро пожаловать в PulseChat 💠';
+}
+
+function updatePinStrip(){
+  const pinned = messages.find(m=>m.pinned);
+  const strip = document.getElementById('pin-strip');
+  if(pinned){
+    document.getElementById('pin-strip-text').textContent = pinned.text.split('\n')[0];
+    strip.style.display = 'flex';
+  }else{
+    strip.style.display = 'none';
+  }
+}
+
+function render(){
+  list.innerHTML = '';
+  let lastDay = null;
+  messages.forEach(m=>{
+    const day = fmtDay(m.ts);
+    if(day !== lastDay){
+      const div = document.createElement('div'); div.className = 'day-divider'; div.textContent = day;
+      list.appendChild(div); lastDay = day;
+    }
+    const row = document.createElement('div');
+    row.className = 'row' + (m.from === 'bot' ? '' : ' mine') + (selectMode ? ' select-mode' : '') + (selectedIds.has(m.id) ? ' picked' : '');
+    row.dataset.id = m.id;
+
+    let quoteHtml = '';
+    if(m.replyTo){
+      const src = findMsg(m.replyTo);
+      if(src) quoteHtml = `<span class="quote">${escapeHtml(src.text.split('\n')[0].slice(0,60))}</span>`;
+    }
+    const editedTag = m.edited ? '<span class="edited-tag">изм.</span>' : '';
+    const reactionHtml = m.reaction ? `<span class="reaction-badge">${m.reaction}</span>` : '';
+
+    row.innerHTML = `
+      <span class="sel-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+      <div class="bubble">${quoteHtml}${escapeHtml(m.text)}<span class="meta">${editedTag} ${fmtTime(m.ts)}</span>${reactionHtml}</div>`;
+
+    row.addEventListener('click', ()=>{ if(selectMode) toggleSelect(m.id); });
+    setupMsgContextMenu(row, m.id);
+    list.appendChild(row);
+  });
+  const lastMsg = messages[messages.length - 1];
+  updateConvSub();
+  updatePinStrip();
+  if(lastMsg) document.getElementById('conv-time').textContent = fmtTime(lastMsg.ts);
+  requestAnimationFrame(()=>{ scrollBox.scrollTop = scrollBox.scrollHeight; });
+}
+
+async function deleteMessage(id){
+  messages = messages.filter(m=>m.id !== id);
+  await saveMessages(); render();
+}
+async function sendMessage(){
+  const val = textEl.value.trim();
+  if(!val) return;
+
+  if(editingId){
+    const m = findMsg(editingId);
+    if(m){ m.text = val; m.edited = true; }
+    editingId = null;
+    textEl.placeholder = 'Сообщение…';
+  }else{
+    const msg = { id: Date.now()+'-'+Math.random().toString(36).slice(2,7), text: val, ts: Date.now(), from:'me' };
+    if(replyToId) msg.replyTo = replyToId;
+    messages.push(msg);
+  }
+  cancelReply();
+  textEl.value = ''; autoGrow(); updateSendState();
+  await saveMessages(); render(); pulseBeat();
+}
+function pulseBeat(){ bpmCount.textContent = 68 + Math.floor(Math.random()*10); }
+function autoGrow(){ textEl.style.height = 'auto'; textEl.style.height = Math.min(textEl.scrollHeight, 120) + 'px'; }
+function updateSendState(){ sendBtn.disabled = !textEl.value.trim(); }
+textEl.addEventListener('input', ()=>{ autoGrow(); updateSendState(); });
+textEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); } });
+sendBtn.addEventListener('click', sendMessage);
+
+/* ---------- REPLY BAR ---------- */
+function startReply(id){
+  const m = findMsg(id);
+  if(!m) return;
+  replyToId = id;
+  document.getElementById('reply-snippet').textContent = m.text.split('\n')[0].slice(0,80);
+  document.getElementById('reply-bar').classList.add('show');
+  textEl.focus();
+}
+function cancelReply(){
+  replyToId = null;
+  document.getElementById('reply-bar').classList.remove('show');
+}
+document.getElementById('reply-cancel').addEventListener('click', cancelReply);
+
+/* ---------- SELECT MODE ---------- */
+function enterSelectMode(id){
+  selectMode = true;
+  selectedIds = new Set(id ? [id] : []);
+  document.getElementById('select-bar').classList.add('show');
+  updateSelectCount();
+  render();
+}
+function exitSelectMode(){
+  selectMode = false;
+  selectedIds = new Set();
+  document.getElementById('select-bar').classList.remove('show');
+  render();
+}
+function toggleSelect(id){
+  if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+  updateSelectCount();
+  render();
+}
+function updateSelectCount(){
+  document.getElementById('select-count').textContent = 'Выбрано: ' + selectedIds.size;
+}
+document.getElementById('select-cancel').addEventListener('click', exitSelectMode);
+document.getElementById('select-delete').addEventListener('click', async ()=>{
+  if(selectedIds.size === 0) return;
+  if(!confirm('Удалить выбранные сообщения?')) return;
+  messages = messages.filter(m=> !selectedIds.has(m.id));
+  await saveMessages();
+  exitSelectMode();
+});
+
+/* ---------- PIN ---------- */
+async function togglePin(id){
+  const m = findMsg(id);
+  if(!m) return;
+  const wasPinned = !!m.pinned;
+  messages.forEach(x=> x.pinned = false);
+  m.pinned = !wasPinned;
+  await saveMessages(); render();
+}
+document.getElementById('pin-strip').addEventListener('click', ()=>{
+  const pinned = messages.find(m=>m.pinned);
+  if(!pinned) return;
+  const row = list.querySelector(`[data-id="${pinned.id}"]`);
+  if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
+});
+
+/* ---------- MESSAGE CONTEXT MENU ---------- */
+const ctxBackdrop = document.getElementById('msg-ctx-backdrop');
+const ctxClone = document.getElementById('msg-ctx-clone');
+const ctxReactions = document.getElementById('msg-ctx-reactions');
+const ctxMenu = document.getElementById('msg-ctx-menu');
+let ctxActiveId = null;
+
+function closeMsgCtx(){
+  ctxBackdrop.classList.remove('show');
+  ctxClone.classList.remove('show');
+  ctxReactions.classList.remove('show');
+  ctxMenu.classList.remove('show');
+  ctxActiveId = null;
+}
+ctxBackdrop.addEventListener('click', closeMsgCtx);
+
+function ctxIcon(path){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`; }
+
+function buildCtxMenuItems(m){
+  const items = [];
+  items.push({ label:'Ответить', icon:ctxIcon('<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>'), action:()=> startReply(m.id) });
+  items.push({ label:'Скопировать', icon:ctxIcon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'), action: async ()=>{
+    const ok = await copyToClipboard(m.text);
+    showSimpleToast(ok ? 'Скопировано' : 'Не удалось скопировать');
+  }});
+  if(m.from !== 'bot'){
+    items.push({ label:'Изменить', icon:ctxIcon('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>'), action:()=>{
+      editingId = m.id;
+      textEl.value = m.text;
+      textEl.focus();
+      autoGrow(); updateSendState();
+      textEl.placeholder = 'Изменить сообщение…';
+    }});
+  }
+  items.push({ label: m.pinned ? 'Открепить' : 'Закрепить', icon:ctxIcon('<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1v3.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/>'), action:()=> togglePin(m.id) });
+  items.push({ label:'Переслать', icon:ctxIcon('<polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/>'), action:()=> showToast('Пока некуда пересылать') });
+  items.push({ label:'Выбрать', icon:ctxIcon('<polyline points="20 6 9 17 4 12"/>'), action:()=> enterSelectMode(m.id) });
+  if(m.from !== 'bot'){
+    items.push({ label:'Удалить', icon:ctxIcon('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'), danger:true, action: async ()=>{
+      if(!confirm('Удалить запись?')) return;
+      await deleteMessage(m.id);
+    }});
+  }
+  return items;
+}
+
+function openMsgCtx(rowEl, id){
+  const m = findMsg(id);
+  if(!m) return;
+  ctxActiveId = id;
+  const bubbleEl = rowEl.querySelector('.bubble');
+  const rect = bubbleEl.getBoundingClientRect();
+  const isMine = rowEl.classList.contains('mine');
+
+  ctxClone.className = isMine ? 'mine' : 'theirs';
+  ctxClone.innerHTML = escapeHtml(m.text);
+  ctxClone.style.top = rect.top + 'px';
+  ctxClone.style.left = isMine ? '' : rect.left + 'px';
+  ctxClone.style.right = isMine ? (window.innerWidth - rect.right) + 'px' : '';
+  ctxClone.style.width = rect.width + 'px';
+
+  const vh = window.innerHeight;
+  const menuItems = buildCtxMenuItems(m);
+  const menuHeight = menuItems.length * 46 + 8;
+  const reactHeight = 52;
+  const spaceBelow = vh - rect.bottom;
+  const openDown = spaceBelow > (menuHeight + reactHeight + 24);
+
+  let reactTop, menuTop;
+  if(openDown){
+    reactTop = rect.bottom + 10;
+    menuTop = reactTop + reactHeight + 8;
+  }else{
+    menuTop = Math.max(rect.top - menuHeight - reactHeight - 18, 10);
+    reactTop = menuTop + menuHeight + 8;
+  }
+
+  ctxReactions.style.top = reactTop + 'px';
+  if(isMine){ ctxReactions.style.right = (window.innerWidth - rect.right) + 'px'; ctxReactions.style.left = ''; }
+  else{ ctxReactions.style.left = rect.left + 'px'; ctxReactions.style.right = ''; }
+
+  ctxMenu.style.top = menuTop + 'px';
+  if(isMine){ ctxMenu.style.right = Math.max(window.innerWidth - rect.right, 12) + 'px'; ctxMenu.style.left = ''; }
+  else{ ctxMenu.style.left = Math.max(rect.left, 12) + 'px'; ctxMenu.style.right = ''; }
+
+  ctxMenu.innerHTML = '';
+  menuItems.forEach(it=>{
+    const el = document.createElement('div');
+    el.className = 'ctx-item' + (it.danger ? ' danger' : '');
+    el.innerHTML = `<span>${it.label}</span>${it.icon}`;
+    el.addEventListener('click', ()=>{ closeMsgCtx(); it.action(); });
+    ctxMenu.appendChild(el);
+  });
+
+  ctxBackdrop.classList.add('show');
+  requestAnimationFrame(()=>{
+    ctxClone.classList.add('show');
+    ctxReactions.classList.add('show');
+    ctxMenu.classList.add('show');
+  });
+}
+
+ctxReactions.querySelectorAll('button').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    if(!ctxActiveId) return;
+    const m = findMsg(ctxActiveId);
+    if(m) m.reaction = (m.reaction === btn.dataset.emoji) ? null : btn.dataset.emoji;
+    closeMsgCtx();
+    await saveMessages(); render();
+  });
+});
+
+function setupMsgContextMenu(rowEl, id){
+  let timer = null, startX = 0, startY = 0;
+  const start = (e)=>{
+    if(selectMode) return;
+    clearTimeout(timer);
+    const p = e.touches ? e.touches[0] : e;
+    startX = p.clientX; startY = p.clientY;
+    timer = setTimeout(()=> openMsgCtx(rowEl, id), 450);
+  };
+  const move = (e)=>{
+    const p = e.touches ? e.touches[0] : e;
+    if(Math.abs(p.clientX - startX) > 12 || Math.abs(p.clientY - startY) > 12) clearTimeout(timer);
+  };
+  const cancel = ()=> clearTimeout(timer);
+  rowEl.addEventListener('touchstart', start, {passive:true});
+  rowEl.addEventListener('touchmove', move, {passive:true});
+  rowEl.addEventListener('touchend', cancel);
+  rowEl.addEventListener('touchcancel', cancel);
+  rowEl.addEventListener('contextmenu', (e)=>{ e.preventDefault(); clearTimeout(timer); openMsgCtx(rowEl, id); });
+}
+
+/* ---------- BOOT ---------- */
+function withTimeout(promise, ms, fallback){
+  return Promise.race([
+    Promise.resolve(promise).catch(()=> fallback),
+    new Promise(resolve => setTimeout(()=> resolve(fallback), ms))
+  ]);
+}
+async function enterApp(){
+  const savedPhone = await withTimeout(storeGet(PHONE_KEY), 3000, null);
+  if(savedPhone) realPhone = savedPhone;
+  await withTimeout(loadMessages(), 3000, null);
+  await withTimeout(initContactState(), 3000, null);
+  await withTimeout(initMyProfile(), 3000, null);
+  show('screen-chatlist');
+}
+(async function boot(){
+  let authed = false;
+  try{
+    authed = await withTimeout(getAuth(), 3000, false);
+  }catch(e){ authed = false; }
+  setTimeout(async ()=>{
+    try{
+      if(authed){ await enterApp(); }
+      else{ show('screen-phone'); }
+    }catch(e){
+      console.error('Boot failed, falling back to phone screen', e);
+      show('screen-phone');
+    }
+  }, 1300);
+})();
+</script>
+</body>
+</html>
